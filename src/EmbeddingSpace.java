@@ -1,12 +1,14 @@
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
 public class EmbeddingSpace {
 
-    private final Map<String, AbstractEmbedding> items;
+    private final Map<String, Embedding> items;
     private final int dimension;
 
+    public EmbeddingSpace(Collection<? extends Embedding> embeddings) {
 
-    public EmbeddingSpace(Collection<? extends AbstractEmbedding> embeddings) {
         if (embeddings == null) {
             throw new IllegalArgumentException("embeddings cannot be null");
         }
@@ -14,40 +16,44 @@ public class EmbeddingSpace {
             throw new IllegalArgumentException("embeddings cannot be empty");
         }
 
-        Map<String, AbstractEmbedding> tmp = new HashMap<>();
+        this.items = new HashMap<>();
+
         int dim = -1;
 
-        for (AbstractEmbedding e : embeddings) {
+        for (Embedding e : embeddings) {
+
             if (e == null) {
                 throw new IllegalArgumentException("embedding cannot be null");
             }
 
-            String key = e.getText();
-            if (key == null || key.isBlank()) {
-                throw new IllegalArgumentException("embedding text cannot be null/blank");
-            }
-
-            Vector v = e.getVector();
-            if (v == null) {
-                throw new IllegalArgumentException("embedding vector cannot be null");
-            }
-
+            // קביעת המימד לפי הראשון
             if (dim == -1) {
-                dim = v.dimension();
-            } else if (dim != v.dimension()) {
+                dim = e.dimension();
+                if (dim <= 0) {
+                    throw new IllegalArgumentException("invalid embedding dimension: " + dim);
+                }
+            }
+            else if (e.dimension() != dim) {
                 throw new IllegalArgumentException(
-                        "all embeddings must have same dimension: expected " + dim + " got " + v.dimension()
+                        "dimension mismatch for key '" + e.getKey() +
+                                "': expected " + dim + " but got " + e.dimension()
                 );
             }
 
-            if (tmp.containsKey(key)) {
-                throw new IllegalArgumentException("duplicate embedding for text: " + key);
+            String key = e.getKey();
+
+            if (key == null || key.isBlank()) {
+                throw new IllegalArgumentException("embedding key cannot be null or blank");
             }
-            tmp.put(key, e);
+
+            if (items.containsKey(key)) {
+                throw new IllegalArgumentException("duplicate embedding key: " + key);
+            }
+
+            items.put(key, e);
         }
 
         this.dimension = dim;
-        this.items = Map.copyOf(tmp); // הופך ל-Immutable Map (Java 10+)
     }
 
     public int dimension() {
@@ -58,23 +64,15 @@ public class EmbeddingSpace {
         return items.size();
     }
 
-    public boolean contains(String text) {
-        if (text == null) return false;
-        return items.containsKey(text);
+    public boolean contains(String key) {
+        return items.containsKey(key);
     }
 
-    public AbstractEmbedding get(String text) {
-        if (text == null || text.isBlank()) {
-            throw new IllegalArgumentException("text cannot be null/blank");
-        }
-        AbstractEmbedding e = items.get(text);
-        if (e == null) {
-            throw new UnknownWordException("unknown text: " + text);
-        }
-        return e;
+    public Embedding get(String key) {
+        return items.get(key);
     }
 
-    public Collection<AbstractEmbedding> all() {
-        return items.values(); // כבר לא ניתן לשינוי כי items הוא Map.copyOf(...)
+    public Collection<Embedding> getAll() {
+        return items.values();
     }
 }

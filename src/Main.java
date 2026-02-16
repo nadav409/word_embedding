@@ -1,23 +1,30 @@
-import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 
 public class Main {
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
 
-        JsonEmbeddingLoader loader = new JsonEmbeddingLoader();
+        Embedding e1 = new WordEmbedding("king", new Vector(new double[]{1, 0}));
+        Embedding e2 = new WordEmbedding("queen", new Vector(new double[]{0, 1}));
 
-        List<RawEmbedding> full = loader.load(Path.of("full_vectors.json"));
-        List<RawEmbedding> pca  = loader.load(Path.of("pca_vectors.json"));
+        List<Embedding> list = new ArrayList<>();
+        list.add(e1);
+        list.add(e2);
 
-        System.out.println("Loaded full: " + full.size());
-        System.out.println("Loaded pca : " + pca.size());
+        EmbeddingSpace fullSpace = new EmbeddingSpace(list);
 
-        RawEmbedding first = full.get(0);
-        System.out.println("First word: " + first.getText());
-        System.out.println("Vector dimension: " + first.getValuesCopy().length);
+        Map<SpaceId, EmbeddingSpace> map = new EnumMap<>(SpaceId.class);
+        map.put(SpaceId.FULL, fullSpace);
 
-        RawEmbedding firstPca = pca.get(0);
-        System.out.println("PCA dimension: " + firstPca.getValuesCopy().length);
+        ResearchEnvironment env = new ResearchEnvironment(map, new CosineDistance());
+
+        ResearchOperation op = new DistanceOperation(env, SpaceId.FULL, "king", "queen");
+        System.out.println("Cosine:    " + op.execute());
+
+        env.setDistanceStrategy(new EuclideanDistance());
+        System.out.println("Euclidean: " + op.execute());
     }
 }

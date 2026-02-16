@@ -1,6 +1,6 @@
-public final class WordEmbedding extends AbstractEmbedding {
-    public WordEmbedding(String word, Vector vector) {
-        super(word, vector);
+public final class WordEmbedding extends Embedding {
+    public WordEmbedding(String key, Vector vector) {
+        super(key, vector);
     }
 }
 

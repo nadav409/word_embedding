@@ -6,10 +6,14 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-public class JsonEmbeddingLoader implements EmbeddingLoader {
+public class JsonEmbeddingLoader extends FileEmbeddingLoader {
+
+    public JsonEmbeddingLoader(Path path) {
+        super(path);
+    }
 
     @Override
-    public List<RawEmbedding> load(Path path) throws IOException {
+    public List<RawEmbedding> load() throws IOException {
 
         List<RawEmbedding> result = new ArrayList<>();
 
@@ -20,7 +24,7 @@ public class JsonEmbeddingLoader implements EmbeddingLoader {
             for (JsonElement element : array) {
                 JsonObject obj = element.getAsJsonObject();
 
-                String word = obj.get("word").getAsString();
+                String key = obj.get("word").getAsString();
 
                 JsonArray vecArray = obj.getAsJsonArray("vector");
                 double[] values = new double[vecArray.size()];
@@ -29,9 +33,11 @@ public class JsonEmbeddingLoader implements EmbeddingLoader {
                     values[i] = vecArray.get(i).getAsDouble();
                 }
 
-                result.add(new RawEmbedding(word, values));
+                result.add(new RawEmbedding(key, values));
             }
         }
+
         return result;
     }
 }
+

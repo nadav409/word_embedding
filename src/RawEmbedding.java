@@ -1,26 +1,24 @@
-import java.util.Arrays;
-
 public class RawEmbedding {
-    private final String text;
+
+    private final String key;
     private final double[] values;
 
-    public RawEmbedding(String text, double[] values) {
-        if (text == null || text.isBlank()) {
-            throw new IllegalArgumentException("text cannot be null/blank");
-        }
-        if (values == null || values.length == 0) {
-            throw new IllegalArgumentException("values cannot be null/empty");
-        }
-        this.text = text;
-        this.values = Arrays.copyOf(values, values.length); // defensive copy
+    public RawEmbedding(String key, double[] values) {
+        if (key == null || key.isBlank())
+            throw new IllegalArgumentException("Key cannot be null or blank");
+        if (values == null || values.length == 0)
+            throw new IllegalArgumentException("Vector cannot be empty");
+
+        this.key = key;
+        this.values = values;
     }
 
-    public String getText() {
-        return text;
+    public String getKey() {
+        return key;
     }
 
     public double[] getValuesCopy() {
-        return Arrays.copyOf(values, values.length);
+        return values.clone();
     }
 
     public int dimension() {
