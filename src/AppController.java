@@ -2,8 +2,8 @@ import java.util.List;
 
 public class AppController {
 
-    private Provider provider;
-    private AxisSelection axes;
+    private final Provider provider;
+    private final AxisSelection axes;
 
     public AppController(Provider provider) {
         if (provider == null)
@@ -27,15 +27,20 @@ public class AppController {
         return axes;
     }
 
-    public List<Neighbor> nearestNeighbors(String word, int k) {
-
-        NearestNeighborsOperation op = new NearestNeighborsOperation(provider, SpaceId.FULL, word, k);
-
-        NearestNeighborsResult result = (NearestNeighborsResult) op.execute();
-
-        return result.getNeighbors();
+    // ✅ allow FX to change metric through controller only
+    public void setDistanceStrategy(DistanceStrategy strategy) {
+        provider.setDistanceStrategy(strategy);
     }
 
+    public DistanceStrategy getDistanceStrategy() {
+        return provider.getDistanceStrategy();
+    }
+
+    public List<Neighbor> nearestNeighbors(String word, int k) {
+        NearestNeighborsOperation op = new NearestNeighborsOperation(provider, SpaceId.FULL, word, k);
+        NearestNeighborsResult result = (NearestNeighborsResult) op.execute();
+        return result.getNeighbors();
+    }
 
     public double[] getPoint(String word) {
 
@@ -81,6 +86,11 @@ public class AppController {
         return provider.getSpace(SpaceId.PCA).dimension();
     }
 
+    public CustomProjectionResult customProjection(String a, String b, int k) {
+        CustomProjectionOperation op =
+                new CustomProjectionOperation(provider, SpaceId.FULL, a, b, k);
+
+        return (CustomProjectionResult) op.execute();
+    }
 
 }
-

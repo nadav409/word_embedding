@@ -54,4 +54,3 @@ public class NearestNeighborsOperation extends ResearchOperation {
         return new NearestNeighborsResult(key, k, topK);
     }
 }
-

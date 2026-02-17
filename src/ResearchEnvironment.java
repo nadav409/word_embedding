@@ -48,6 +48,7 @@ public class ResearchEnvironment implements Provider {
         return distanceStrategy;
     }
 
+    @Override
     public void setDistanceStrategy(DistanceStrategy strategy) {
         if (strategy == null) {
             throw new IllegalArgumentException("strategy cannot be null");
