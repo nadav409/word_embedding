@@ -17,6 +17,10 @@ public class DistanceOperation extends ResearchOperation {
         this.keyB = keyB;
     }
 
+    public DistanceOperation(Provider provider, String keyA, String keyB) {
+        this(provider, SpaceId.FULL, keyA, keyB);
+    }
+
     @Override
     protected OperationResult run(EmbeddingSpace space) {
 

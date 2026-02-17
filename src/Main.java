@@ -1,30 +1,50 @@
+import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.List;
-import java.util.Map;
 
 public class Main {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
 
-        Embedding e1 = new WordEmbedding("king", new Vector(new double[]{1, 0}));
-        Embedding e2 = new WordEmbedding("queen", new Vector(new double[]{0, 1}));
+        // שנה לנתיב של הקובץ שהמרצה נתן
+        Path path = Path.of("full_vectors.json");
 
-        List<Embedding> list = new ArrayList<>();
-        list.add(e1);
-        list.add(e2);
 
-        EmbeddingSpace fullSpace = new EmbeddingSpace(list);
+        // ===== שלב 1: טעינת JSON =====
+        EmbeddingLoader loader = new JsonEmbeddingLoader(path);
+        List<RawEmbedding> rawEmbeddings = loader.load();
 
-        Map<SpaceId, EmbeddingSpace> map = new EnumMap<>(SpaceId.class);
-        map.put(SpaceId.FULL, fullSpace);
+        System.out.println("Loaded raw embeddings: " + rawEmbeddings.size());
 
-        ResearchEnvironment env = new ResearchEnvironment(map, new CosineDistance());
+        // ===== שלב 2: המרה ל-Embedding =====
+        List<Embedding> embeddings = new ArrayList<>(rawEmbeddings.size());
 
-        ResearchOperation op = new DistanceOperation(env, SpaceId.FULL, "king", "queen");
-        System.out.println("Cosine:    " + op.execute());
+        for (RawEmbedding raw : rawEmbeddings) {
+            String key = raw.getKey();
+            double[] values = raw.getValuesCopy();
 
-        env.setDistanceStrategy(new EuclideanDistance());
-        System.out.println("Euclidean: " + op.execute());
+            Vector v = new Vector(values);
+            embeddings.add(new WordEmbedding(key, v));
+        }
+
+        // ===== שלב 3: בניית EmbeddingSpace =====
+        EmbeddingSpace space = new EmbeddingSpace(embeddings);
+
+        System.out.println("Space size: " + space.size());
+        System.out.println("Vector dimension: " + space.dimension());
+
+        // ===== שלב 4: Provider =====
+        Provider provider = new SimpleProvider(space, new CosineDistance());
+
+        // ===== שלב 5: בדיקה =====
+        // ניקח מילה שבטוח קיימת (הראשונה בקובץ)
+        String keyToTest = embeddings.get(0).getKey();
+
+        System.out.println("\nTesting word: " + keyToTest);
+
+        OperationResult result =
+                new NearestNeighborsOperation(provider, SpaceId.FULL, keyToTest, 10).execute();
+
+        System.out.println(result);
     }
 }
