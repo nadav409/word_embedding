@@ -6,7 +6,6 @@ import java.util.function.Consumer;
 
 public interface PlotView {
 
-    // מה שמכניסים ל-UI (BorderPane.setCenter)
     Node getNode();
 
     void setPoints(List<PlotPoint> points);
@@ -17,5 +16,5 @@ public interface PlotView {
 
     void setLabels(Set<String> keys);
 
-    void setOnWordClicked(Consumer<String> callback);
+    void setOnItemClicked(Consumer<String> handler);
 }

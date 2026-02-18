@@ -10,20 +10,21 @@ import java.util.function.Consumer;
 
 public class PcaPlotView2D extends Pane implements PlotView {
 
-    private List<PlotPoint> points = new ArrayList<>();
+    private List<PlotPoint> points = List.of();
     private String selectedKey = null;
-    private Set<String> highlighted = new HashSet<>();
-    private Set<String> labels = new HashSet<>();
+    private Set<String> highlighted = Set.of();
+    private Set<String> labels = Set.of();
 
     private Consumer<String> clickCallback;
 
     private final Color baseColor = Color.rgb(50, 80, 255, 0.7);
     private final Color selectedColor = Color.ORANGE;
-    private final Color neighborColor = Color.rgb(0, 170, 120, 0.85);
+    private final Color highlightColor = Color.rgb(0, 170, 120, 0.85);
 
     private final Label hoverLabel;
 
     public PcaPlotView2D() {
+
         setPrefSize(900, 700);
 
         hoverLabel = new Label();
@@ -38,9 +39,10 @@ public class PcaPlotView2D extends Pane implements PlotView {
                         "-fx-font-size: 12px;" +
                         "-fx-font-weight: bold;"
         );
+
         getChildren().add(hoverLabel);
 
-        // redraw כשמשנים גודל חלון
+        // redraw אוטומטי כשמשנים גודל
         widthProperty().addListener((obs, a, b) -> redraw());
         heightProperty().addListener((obs, a, b) -> redraw());
     }
@@ -56,7 +58,7 @@ public class PcaPlotView2D extends Pane implements PlotView {
 
     @Override
     public void setPoints(List<PlotPoint> pts) {
-        this.points = (pts == null) ? new ArrayList<>() : pts;
+        this.points = (pts == null) ? List.of() : List.copyOf(pts);
         redraw();
     }
 
@@ -68,18 +70,18 @@ public class PcaPlotView2D extends Pane implements PlotView {
 
     @Override
     public void setHighlights(Set<String> keys) {
-        this.highlighted = (keys == null) ? new HashSet<>() : new HashSet<>(keys);
+        this.highlighted = (keys == null) ? Set.of() : Set.copyOf(keys);
         redraw();
     }
 
     @Override
     public void setLabels(Set<String> keys) {
-        this.labels = (keys == null) ? new HashSet<>() : new HashSet<>(keys);
+        this.labels = (keys == null) ? Set.of() : Set.copyOf(keys);
         redraw();
     }
 
     @Override
-    public void setOnWordClicked(Consumer<String> callback) {
+    public void setOnItemClicked(Consumer<String> callback) {
         this.clickCallback = callback;
     }
 
@@ -93,9 +95,9 @@ public class PcaPlotView2D extends Pane implements PlotView {
         getChildren().add(hoverLabel);
         hoverLabel.setVisible(false);
 
-        if (points == null || points.isEmpty()) return;
+        if (points.isEmpty()) return;
 
-        // ===== autoscale =====
+        // ===== Autoscale =====
         double minX = Double.POSITIVE_INFINITY, maxX = Double.NEGATIVE_INFINITY;
         double minY = Double.POSITIVE_INFINITY, maxY = Double.NEGATIVE_INFINITY;
 
@@ -110,9 +112,10 @@ public class PcaPlotView2D extends Pane implements PlotView {
         double h = getHeight() > 0 ? getHeight() : getPrefHeight();
         double pad = 30;
 
-        double dx = (maxX - minX);
+        double dx = maxX - minX;
         if (dx == 0) dx = 1e-9;
-        double dy = (maxY - minY);
+
+        double dy = maxY - minY;
         if (dy == 0) dy = 1e-9;
 
         List<Text> labelNodes = new ArrayList<>();
@@ -125,26 +128,26 @@ public class PcaPlotView2D extends Pane implements PlotView {
             double cy = pad + (maxY - p.getY()) / dy * (h - 2 * pad);
 
             boolean isSelected = key != null && key.equals(selectedKey);
-            boolean isNeighbor = key != null && highlighted.contains(key);
+            boolean isHighlighted = key != null && highlighted.contains(key);
 
-            double r;
+            double radius;
             Color fill;
 
             if (isSelected) {
-                r = 3.6;
+                radius = 3.6;
                 fill = selectedColor;
-            } else if (isNeighbor) {
-                r = 2.8;
-                fill = neighborColor;
+            } else if (isHighlighted) {
+                radius = 2.8;
+                fill = highlightColor;
             } else {
-                r = 2.1;
+                radius = 2.1;
                 fill = baseColor;
             }
 
-            Circle dot = new Circle(cx, cy, r);
+            Circle dot = new Circle(cx, cy, radius);
             dot.setFill(fill);
 
-            // hitbox שקוף ללחיצה + hover
+            // Hitbox גדול יותר לאינטראקציה
             Circle hit = new Circle(cx, cy, 10);
             hit.setFill(Color.TRANSPARENT);
 
@@ -160,7 +163,7 @@ public class PcaPlotView2D extends Pane implements PlotView {
 
             getChildren().addAll(dot, hit);
 
-            // ===== labels =====
+            // ===== Labels =====
             if (key != null && labels.contains(key)) {
                 Text t = new Text(key);
                 t.setMouseTransparent(true);
@@ -171,7 +174,6 @@ public class PcaPlotView2D extends Pane implements PlotView {
             }
         }
 
-        // labels מעל כולם
         getChildren().addAll(labelNodes);
         for (Text t : labelNodes) t.toFront();
 
@@ -179,6 +181,7 @@ public class PcaPlotView2D extends Pane implements PlotView {
     }
 
     private void showHoverLabel(double x, double y, String text) {
+
         if (text == null) return;
 
         hoverLabel.setText(text);
