@@ -92,5 +92,13 @@ public class AppController {
 
         return (CustomProjectionResult) op.execute();
     }
+    public List<Neighbor> vectorArithmetic(VectorExpression expr, int k) {
+        VectorArithmeticOperation op = new VectorArithmeticOperation(provider, SpaceId.FULL, expr, k);
+        VectorArithmeticResult result = (VectorArithmeticResult) op.execute();
+        return result.getTopK();
+    }
+
+
+
 
 }

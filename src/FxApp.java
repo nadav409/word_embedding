@@ -26,6 +26,7 @@ public class FxApp extends Application {
     private ComboBox<String> modeBox;
     private VBox neighborsPanel;
     private VBox projectionPanel;
+    private VBox vectorPanel;
 
     // ===== Neighbors UI =====
     private Label selectedWordLabel;
@@ -33,6 +34,24 @@ public class FxApp extends Application {
     private Button neighborsBtn;
     private ListView<String> neighborsList;
     private String selectedWord = null;
+
+    // ===== Vector Arithmetic UI =====
+    private ListView<String> exprList;
+    private Button plusBtn;
+    private Button minusBtn;
+    private Button undoBtn;
+    private Button clearBtn;
+
+    private TextField exprKField;
+    private TextField exprSearchField;
+    private Button solveExprBtn;
+    private ListView<String> exprResultList;
+
+    private final VectorExpression currentExpr = new VectorExpression();
+    private CombineOp pendingOp = CombineOp.PLUS;
+
+    // כדי לאפשר Undo בלי לשנות את VectorExpression
+    private final Deque<ExpressionStep> exprStepsStack = new ArrayDeque<>();
 
     // ===== Search (Neighbors) =====
     private TextField searchField;
@@ -126,15 +145,13 @@ public class FxApp extends Application {
 
     private VBox buildRightPanel(Stage stage) {
 
-        // shared autocomplete popup
         initSharedAutocompletePopup(stage);
 
         selectedWordLabel = new Label("Selected: (none)");
         selectedWordLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
 
-        // Mode selector
         modeBox = new ComboBox<>();
-        modeBox.getItems().addAll("Nearest neighbors", "Custom projection");
+        modeBox.getItems().addAll("Nearest neighbors", "Custom projection", "Vector arithmetic");
         modeBox.getSelectionModel().select(0);
 
         HBox modeRow = new HBox(8, new Label("Operation:"), modeBox);
@@ -142,15 +159,18 @@ public class FxApp extends Application {
 
         neighborsPanel = buildNeighborsPanel(stage);
         projectionPanel = buildProjectionPanel(stage);
+        vectorPanel = buildVectorArithmeticPanel(stage);
 
         // start with neighbors visible
         setPanelVisible(neighborsPanel, true);
         setPanelVisible(projectionPanel, false);
+        setPanelVisible(vectorPanel, false);
 
         modeBox.setOnAction(e -> {
-            boolean isNeighbors = modeBox.getSelectionModel().getSelectedIndex() == 0;
-            setPanelVisible(neighborsPanel, isNeighbors);
-            setPanelVisible(projectionPanel, !isNeighbors);
+            int idx = modeBox.getSelectionModel().getSelectedIndex();
+            setPanelVisible(neighborsPanel, idx == 0);
+            setPanelVisible(projectionPanel, idx == 1);
+            setPanelVisible(vectorPanel, idx == 2);
             hideSuggestions();
         });
 
@@ -158,7 +178,8 @@ public class FxApp extends Application {
                 selectedWordLabel,
                 modeRow,
                 neighborsPanel,
-                projectionPanel
+                projectionPanel,
+                vectorPanel
         );
         box.setPadding(new Insets(12));
         box.setPrefWidth(380);
@@ -174,11 +195,9 @@ public class FxApp extends Application {
 
     private VBox buildNeighborsPanel(Stage stage) {
 
-        // Search field
         searchField = new TextField();
         searchField.setPromptText("Search word…");
 
-        // attach autocomplete to searchField
         installAutocomplete(stage, searchField, picked -> {
             if (picked != null && !picked.isBlank()) selectWord(picked);
         });
@@ -187,7 +206,6 @@ public class FxApp extends Application {
         searchRow.setStyle("-fx-alignment: center-left;");
         HBox.setHgrow(searchField, Priority.ALWAYS);
 
-        // Metric row
         cosineBtn = new RadioButton("Cosine");
         euclideanBtn = new RadioButton("Euclidean");
 
@@ -207,7 +225,6 @@ public class FxApp extends Application {
         HBox metricRow = new HBox(10, new Label("Distance:"), cosineBtn, euclideanBtn);
         metricRow.setStyle("-fx-alignment: center-left;");
 
-        // K + Find neighbors
         kField = new TextField("10");
         kField.setPrefColumnCount(5);
 
@@ -275,7 +292,6 @@ public class FxApp extends Application {
         axisAList.setPrefHeight(200);
         axisBList.setPrefHeight(200);
 
-        // click picks -> select word on plot
         axisAList.setOnMouseClicked(e -> {
             String w = extractWord(axisAList.getSelectionModel().getSelectedItem());
             if (w != null) selectWord(w);
@@ -305,6 +321,175 @@ public class FxApp extends Application {
         return row.substring(0, idx).trim();
     }
 
+    // ------------------ Vector Arithmetic panel ------------------
+
+    private VBox buildVectorArithmeticPanel(Stage stage) {
+
+        Label title = new Label("Vector Arithmetic (+ / -)");
+        title.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+
+        exprList = new ListView<>();
+        exprList.setPrefHeight(140);
+        exprList.getItems().setAll("(choose + or - then click words on the plot)");
+
+        plusBtn = new Button("+");
+        minusBtn = new Button("-");
+        undoBtn = new Button("Undo");
+        clearBtn = new Button("Clear");
+
+        plusBtn.setOnAction(e -> pendingOp = CombineOp.PLUS);
+        minusBtn.setOnAction(e -> pendingOp = CombineOp.MINUS);
+
+        undoBtn.setOnAction(e -> undoLastExprStep());
+        clearBtn.setOnAction(e -> clearExpression());
+
+        HBox opRow = new HBox(8, new Label("Next op:"), plusBtn, minusBtn, undoBtn, clearBtn);
+        opRow.setStyle("-fx-alignment: center-left;");
+
+        exprKField = new TextField("5");
+        exprKField.setPrefColumnCount(4);
+
+        solveExprBtn = new Button("Solve");
+        solveExprBtn.setOnAction(e -> runVectorArithmetic());
+
+        HBox actionRow = new HBox(8, new Label("Top K:"), exprKField, solveExprBtn);
+        actionRow.setStyle("-fx-alignment: center-left;");
+
+        // Search field (with same autocomplete as other panels)
+        exprSearchField = new TextField();
+        exprSearchField.setPromptText("Search word…");
+
+        installAutocomplete(stage, exprSearchField, picked -> {
+            if (picked != null && !picked.isBlank()) {
+                addWordToExpression(picked);   // זה מוסיף לביטוי (+/-)
+            }
+        });
+
+        HBox searchRow = new HBox(8, new Label("Search:"), exprSearchField);
+        searchRow.setStyle("-fx-alignment: center-left;");
+        HBox.setHgrow(exprSearchField, Priority.ALWAYS);
+
+
+        exprResultList = new ListView<>();
+        exprResultList.setPrefHeight(220);
+
+        VBox panel = new VBox(10,
+                title,
+                searchRow,
+                exprList,
+                opRow,
+                actionRow,
+                new Label("Results (word | distance):"),
+                exprResultList
+        );
+
+
+        panel.setPadding(new Insets(8));
+        panel.setStyle("-fx-border-color: rgba(0,0,0,0.15); -fx-border-radius: 8; -fx-background-radius: 8;");
+        return panel;
+    }
+
+    private void addWordToExpression(String word) {
+        if (word == null || word.isBlank()) return;
+
+        // UI-stack ל-Undo
+        ExpressionStep step = new ExpressionStep(pendingOp, word);
+        exprStepsStack.addLast(step);
+
+        // rebuild currentExpr (כי אין remove/clear בהכרח)
+        rebuildExpressionFromStack();
+
+        // update UI
+        if (exprList != null) {
+            if (exprList.getItems().size() == 1 && exprList.getItems().get(0).startsWith("(choose")) {
+                exprList.getItems().clear();
+            }
+            String sign = (pendingOp == CombineOp.PLUS) ? "+" : "-";
+            exprList.getItems().add(sign + " " + word);
+        }
+    }
+
+    private void rebuildExpressionFromStack() {
+        // מאפסים ובונים מחדש currentExpr בלי לשבור OOP:
+        // אם אין clear() ב-VectorExpression שלך, פשוט ניצור אחד חדש דרך רפלקציה? לא.
+        // לכן: נניח שה-VectorExpression שלך הוא בדיוק כמו שכתבת (עם steps פנימי),
+        // והפתרון הכי נקי הוא להוסיף לו clear(). אם לא הוספת, אז תעשה "new VectorExpression" במקום final.
+        //
+        // ✅ פתרון מומלץ: שנה את currentExpr להיות לא-final ואז:
+        // currentExpr = new VectorExpression();
+        //
+        // אבל כי אצלך זה final, נניח שהוספת clear() ל-VectorExpression.
+        currentExpr.clear();
+
+        for (ExpressionStep s : exprStepsStack) {
+            currentExpr.add(s.getOp(), s.getKey());
+        }
+    }
+
+    private void undoLastExprStep() {
+        if (exprStepsStack.isEmpty()) return;
+
+        exprStepsStack.removeLast();
+
+        // rebuild expression
+        rebuildExpressionFromStack();
+
+        // update exprList
+        if (exprList != null && !exprList.getItems().isEmpty()) {
+            // אם זו הודעת placeholder – אין מה להסיר
+            if (exprList.getItems().size() == 1 && exprList.getItems().get(0).startsWith("(choose")) return;
+
+            exprList.getItems().remove(exprList.getItems().size() - 1);
+            if (exprList.getItems().isEmpty()) {
+                exprList.getItems().setAll("(choose + or - then click words on the plot)");
+            }
+        }
+
+        // clear results (כי הביטוי השתנה)
+        if (exprResultList != null) exprResultList.getItems().clear();
+    }
+
+    private void clearExpression() {
+        exprStepsStack.clear();
+        currentExpr.clear();
+
+        if (exprList != null) exprList.getItems().setAll("(choose + or - then click words on the plot)");
+        if (exprResultList != null) exprResultList.getItems().clear();
+    }
+
+    private void runVectorArithmetic() {
+        int k;
+        try {
+            k = Integer.parseInt(exprKField.getText().trim());
+        } catch (Exception ex) {
+            k = 5;
+            exprKField.setText("5");
+        }
+        if (k < 1) k = 1;
+
+        exprResultList.getItems().clear();
+
+        if (exprStepsStack.isEmpty()) {
+            exprResultList.getItems().add("ERROR: expression is empty");
+            return;
+        }
+
+        try {
+            List<Neighbor> res = controller.vectorArithmetic(currentExpr, k);
+
+            for (Neighbor n : res) {
+                exprResultList.getItems().add(
+                        n.getKey() + "  |  " + String.format("%.6f", n.getDistance())
+                );
+            }
+            if (res.isEmpty()) exprResultList.getItems().add("(no results)");
+
+        } catch (Exception ex) {
+            exprResultList.getItems().add("ERROR: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+
     // ------------------ Shared Autocomplete ------------------
 
     private void initSharedAutocompletePopup(Stage stage) {
@@ -326,10 +511,8 @@ public class FxApp extends Application {
 
         suggestPopup.getContent().add(suggestList);
 
-        // click picks
         suggestList.setOnMouseClicked(e -> pickFromSuggestions());
 
-        // keyboard in list
         suggestList.setOnKeyPressed(e -> {
             if (e.getCode() == KeyCode.ENTER) {
                 pickFromSuggestions();
@@ -488,11 +671,14 @@ public class FxApp extends Application {
         selectedWordLabel.setText("Selected: " + word);
         if (neighborsBtn != null) neighborsBtn.setDisable(false);
 
-        // reset highlights until user runs Find neighbors again
+        // אם אנחנו במצב Vector arithmetic – מוסיפים לביטוי
+        if (modeBox != null && modeBox.getSelectionModel().getSelectedIndex() == 2) {
+            addWordToExpression(word);
+        }
+
         highlightedKeys.clear();
         highlightOnPlot = false;
 
-        // set search text WITHOUT triggering popup
         if (searchField != null) {
             programmaticUpdate = true;
             try {
