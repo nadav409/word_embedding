@@ -50,13 +50,8 @@ public class VectorArithmeticOperation extends ResearchOperation {
             result = (result == null) ? signed : result.add(signed);
         }
 
-        List<Neighbor> top = NearestNeighborsOperation.findNearestByVector(
-                space,
-                result,
-                k,
-                excluded,
-                metric()
-        );
+        List<Neighbor> top = NeighborFinder.findNearestByVector(space, result, k, excluded, metric());
+
 
         // אופציונלי: תיאור קצר בשביל UI/debug
         String preview = buildPreview();
