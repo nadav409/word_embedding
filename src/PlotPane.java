@@ -77,5 +77,10 @@ public class PlotPane implements UiStateListener {
         if (highlightedKeys != null) labels.addAll(highlightedKeys);
         plotView.setLabels(labels);
     }
+
+    public void onOperationChanged(OperationType type) {
+        // לא רלוונטי ל-PlotPane
+    }
+    public void onProjectionResultChanged(CustomProjectionResult res){}
 }
 

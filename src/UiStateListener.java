@@ -14,4 +14,9 @@ public interface UiStateListener {
     void onStatusChanged(String message);
 
     void onErrorChanged(String message);
+
+    void onOperationChanged(OperationType type);
+
+    void onProjectionResultChanged(CustomProjectionResult res);
+
 }

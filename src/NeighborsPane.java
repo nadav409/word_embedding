@@ -31,7 +31,7 @@ public class NeighborsPane implements UiStateListener {
     // callbacks (to Presenter)
     private Consumer<String> onSearchPicked;
     private Consumer<Integer> onFindNeighborsRequested;
-    private Consumer<DistanceStrategy> onMetricSelected;
+    private Consumer<MetricType> onMetricSelected;   // ✅ UI enum, not DistanceStrategy
 
     // local state
     private String selectedKey;
@@ -53,15 +53,16 @@ public class NeighborsPane implements UiStateListener {
         cosineBtn.setToggleGroup(metricGroup);
         euclideanBtn.setToggleGroup(metricGroup);
 
-        // ✅ Default UI selection (Cosine)
+        // default selection
         cosineBtn.setSelected(true);
 
         HBox metricRow = new HBox(10, new Label("Distance:"), cosineBtn, euclideanBtn);
         metricRow.setStyle("-fx-alignment: center-left;");
 
         metricGroup.selectedToggleProperty().addListener((obs, oldT, newT) -> {
-            if (newT == cosineBtn) fireMetricSelected(new CosineDistance());
-            else if (newT == euclideanBtn) fireMetricSelected(new EuclideanDistance());
+            if (newT == null) return;
+            if (newT == cosineBtn) fireMetricSelected(MetricType.COSINE);
+            else if (newT == euclideanBtn) fireMetricSelected(MetricType.EUCLIDEAN);
         });
 
         // Action row
@@ -123,7 +124,7 @@ public class NeighborsPane implements UiStateListener {
         this.onFindNeighborsRequested = handler;
     }
 
-    public void setOnMetricSelected(Consumer<DistanceStrategy> handler) {
+    public void setOnMetricSelected(Consumer<MetricType> handler) {
         this.onMetricSelected = handler;
     }
 
@@ -145,7 +146,7 @@ public class NeighborsPane implements UiStateListener {
 
     @Override
     public void onMetricChanged(DistanceStrategy metric) {
-        // Keep radio buttons in sync if Presenter changes metric programmatically
+        // display sync only
         if (metric instanceof EuclideanDistance) euclideanBtn.setSelected(true);
         else cosineBtn.setSelected(true);
     }
@@ -161,7 +162,7 @@ public class NeighborsPane implements UiStateListener {
 
         for (Neighbor n : results) {
             resultsList.getItems().add(
-                    n.getKey() + "  |  " + String.format("%.6f", n.getDistance())
+                    n.getKey() + "  |  " + String.format(java.util.Locale.ROOT, "%.6f", n.getDistance())
             );
         }
     }
@@ -179,6 +180,13 @@ public class NeighborsPane implements UiStateListener {
     @Override
     public void onErrorChanged(String message) {
         errorLabel.setText(message == null ? "" : message);
+    }
+
+    @Override
+    public void onOperationChanged(OperationType type) {
+        boolean visible = (type == OperationType.NEIGHBORS);
+        root.setVisible(visible);
+        root.setManaged(visible);
     }
 
     // ---------- Helpers ----------
@@ -209,7 +217,8 @@ public class NeighborsPane implements UiStateListener {
         if (onSearchPicked != null) onSearchPicked.accept(key);
     }
 
-    private void fireMetricSelected(DistanceStrategy s) {
-        if (onMetricSelected != null) onMetricSelected.accept(s);
+    private void fireMetricSelected(MetricType type) {
+        if (onMetricSelected != null) onMetricSelected.accept(type);
     }
+    public void onProjectionResultChanged(CustomProjectionResult res){}
 }

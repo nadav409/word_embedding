@@ -11,15 +11,12 @@ public class AppPresenter {
         this.controller = controller;
         this.uiState = uiState;
 
-
         DistanceStrategy initialMetric = controller.getDistanceStrategy();
         uiState.setMetric(initialMetric);
     }
 
-
     // -------- Events coming from UI --------
 
-    /** Called when the user clicks an item on the plot (or picks from search/autocomplete). */
     public void onItemSelected(String key) {
         if (key == null || key.isBlank()) return;
 
@@ -28,13 +25,12 @@ public class AppPresenter {
 
         uiState.setSelectedKey(key);
 
-        // Reset old neighbors display until user clicks Find
+        // reset old results until user runs operation
         uiState.setPrimaryResults(List.of());
         uiState.setHighlightedKeys(Set.of());
     }
 
-    /** Called when user changes distance metric in NeighborsPane. */
-    public void onMetricSelected(DistanceStrategy strategy) {
+    private void applyMetric(DistanceStrategy strategy) {
         if (strategy == null) return;
 
         controller.setDistanceStrategy(strategy);
@@ -44,7 +40,17 @@ public class AppPresenter {
         uiState.setStatus("Metric: " + strategy.getClass().getSimpleName());
     }
 
-    /** Called when user clicks 'Find neighbors' with some K. */
+    public void onMetricSelected(MetricType type) {
+        if (type == null) return;
+
+        DistanceStrategy strategy =
+                (type == MetricType.COSINE)
+                        ? new CosineDistance()
+                        : new EuclideanDistance();
+
+        applyMetric(strategy);
+    }
+
     public void onFindNeighborsRequested(int k) {
         String selected = uiState.getSelectedKey();
         if (selected == null || selected.isBlank()) {
@@ -61,14 +67,12 @@ public class AppPresenter {
 
             List<Neighbor> neighbors = controller.nearestNeighbors(selected, k);
 
-            // update results list
             uiState.setPrimaryResults(neighbors);
 
-            // update highlights set for the plot
             LinkedHashSet<String> highlights = new LinkedHashSet<>();
             for (Neighbor n : neighbors) {
-                String key = n.getKey();
-                if (key != null && !key.equals(selected)) highlights.add(key);
+                String nk = n.getKey();
+                if (nk != null && !nk.equals(selected)) highlights.add(nk);
             }
             uiState.setHighlightedKeys(highlights);
 
@@ -80,4 +84,69 @@ public class AppPresenter {
             ex.printStackTrace();
         }
     }
+
+    public void onOperationSelected(OperationType op) {
+        uiState.setSelectedOperation(op);
+    }
+
+    // ✅ UPDATED: now receives K from VectorArithmeticPane
+    public void onVectorResultRequested(VectorExpression expr, int k) {
+        if (expr == null || expr.isEmpty()) return;
+        if (k < 1) k = 1;
+
+        uiState.setError("");
+        uiState.setStatus("Computing vector expression...");
+
+        try {
+            // metric already controlled by onMetricSelected → controller.setDistanceStrategy(...)
+            List<Neighbor> neighbors = controller.vectorArithmetic(expr, k);
+
+            uiState.setPrimaryResults(neighbors);
+
+            uiState.setHighlightedKeys(
+                    neighbors.stream()
+                            .map(Neighbor::getKey)
+                            .filter(s -> s != null && !s.isBlank())
+                            .collect(java.util.stream.Collectors.toSet())
+            );
+
+            uiState.setStatus("Done");
+
+        } catch (UnknownWordException ex) {
+            uiState.setPrimaryResults(List.of());
+            uiState.setHighlightedKeys(Set.of());
+            uiState.setStatus("");
+            uiState.setError("Unknown word: " + ex.getMessage());
+        } catch (Exception ex) {
+            uiState.setPrimaryResults(List.of());
+            uiState.setHighlightedKeys(Set.of());
+            uiState.setStatus("");
+            uiState.setError("Error: " + ex.getMessage());
+        }
+    }
+    public void onProjectionRequested(String a, String b, int k) {
+        if (a == null || a.isBlank() || b == null || b.isBlank()) return;
+        if (k < 1) k = 1;
+
+        uiState.setError("");
+        uiState.setStatus("Projecting...");
+
+        try {
+            CustomProjectionResult res = controller.customProjection(a, b, k);
+
+            // ✅ זה ה-OOP הנכון: Presenter מעדכן state
+            uiState.setProjectionResult(res);
+
+            uiState.setStatus("Done");
+        } catch (UnknownWordException ex) {
+            uiState.setProjectionResult(null);
+            uiState.setStatus("");
+            uiState.setError("Unknown word: " + ex.getMessage());
+        } catch (Exception ex) {
+            uiState.setProjectionResult(null);
+            uiState.setStatus("");
+            uiState.setError("Error: " + ex.getMessage());
+        }
+    }
+
 }

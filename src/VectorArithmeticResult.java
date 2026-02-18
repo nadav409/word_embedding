@@ -37,4 +37,8 @@ public class VectorArithmeticResult extends OperationResult {
         if (best == null) return "VectorArithmeticResult{k=" + k + ", empty}";
         return "VectorArithmeticResult{k=" + k + ", best=" + best.getKey() + ", dist=" + best.getDistance() + "}";
     }
+
+    public List<Neighbor> getNeighbors() {
+        return getTopK();
+    }
 }
