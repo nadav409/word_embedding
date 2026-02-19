@@ -18,7 +18,9 @@ public class GroupingPane implements UiStateListener {
 
     private final TextField inputField = new TextField();
     private final Button addBtn = new Button("Add");
+
     private final Button removeBtn = new Button("Remove Selected");
+    private final Button removeAllBtn = new Button("Remove All"); // 🔥 חדש
 
     private final ListView<String> groupList = new ListView<>();
     private final ObservableList<String> groupItems =
@@ -27,8 +29,7 @@ public class GroupingPane implements UiStateListener {
     private final TextField kField = new TextField("10");
     private final Button computeBtn = new Button("Compute");
 
-    // 🔥 עכשיו שומר Neighbor אמיתי
-    private final ListView<Neighbor> resultsList = new ListView<>();
+    private final ListView<String> resultsList = new ListView<>();
 
     private final Label statusLabel = new Label();
     private final Label errorLabel = new Label();
@@ -55,43 +56,28 @@ public class GroupingPane implements UiStateListener {
             if (selected != null) groupItems.remove(selected);
         });
 
+        // 🔥 Remove All
+        removeAllBtn.setOnAction(e -> {
+            groupItems.clear();
+            resultsList.getItems().clear();
+        });
+
         groupList.setItems(groupItems);
         groupList.setPrefHeight(120);
 
         computeBtn.setOnAction(e -> fireCompute());
 
-        resultsList.setPrefHeight(150);
-
-        // 🎨 CellFactory לצביעה חכמה
-        resultsList.setCellFactory(list -> new ListCell<>() {
-            @Override
-            protected void updateItem(Neighbor item, boolean empty) {
-                super.updateItem(item, empty);
-
-                if (empty || item == null) {
-                    setText(null);
-                    setStyle("");
-                } else {
-                    setText(item.getKey() + "  |  " +
-                            String.format("%.4f", item.getDistance()));
-
-                    if (groupItems.contains(item.getKey())) {
-                        setStyle("-fx-background-color: rgba(0,190,120,0.25);");
-                    } else {
-                        setStyle("");
-                    }
-                }
-            }
-        });
+        resultsList.setPrefHeight(140);
 
         HBox addRow = new HBox(8, inputField, addBtn);
+        HBox removeRow = new HBox(8, removeBtn, removeAllBtn); // 🔥 שורה חדשה
         HBox kRow = new HBox(8, new Label("K:"), kField);
 
         root.getChildren().addAll(
                 new Label("Group:"),
                 addRow,
                 groupList,
-                removeBtn,
+                removeRow,   // 🔥 פה זה נכנס
                 kRow,
                 computeBtn,
                 new Label("Closest to centroid:"),
@@ -139,7 +125,6 @@ public class GroupingPane implements UiStateListener {
         groupingHandler.accept(List.copyOf(groupItems), k);
     }
 
-    // ===== קליק מהגרף מוסיף לקבוצה =====
     @Override
     public void onSelectionChanged(String key) {
         if (key == null || key.isBlank()) return;
@@ -149,7 +134,6 @@ public class GroupingPane implements UiStateListener {
         }
     }
 
-    // 🔥 הכנסת תוצאות אמיתיות
     @Override
     public void onPrimaryResultsChanged(List<Neighbor> results) {
 
@@ -157,7 +141,11 @@ public class GroupingPane implements UiStateListener {
 
         if (results == null || results.isEmpty()) return;
 
-        resultsList.getItems().addAll(results);
+        for (Neighbor n : results) {
+            resultsList.getItems().add(
+                    n.getKey() + "  |  " + String.format("%.4f", n.getDistance())
+            );
+        }
     }
 
     @Override public void onHighlightsChanged(Set<String> highlightedKeys) {}
