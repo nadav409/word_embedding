@@ -118,6 +118,18 @@ public class AppController {
         return strategy.compute(e1.getVector(), e2.getVector());
     }
 
+    public List<Neighbor> subspaceGrouping(List<String> keys, int k) {
+
+        SubspaceGroupingOperation op =
+                new SubspaceGroupingOperation(provider, SpaceId.FULL, keys, k);
+
+        SubspaceGroupingResult result =
+                (SubspaceGroupingResult) op.execute();
+
+        return result.getNeighbors();
+    }
+
+
 
 
 

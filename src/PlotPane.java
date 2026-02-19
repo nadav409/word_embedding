@@ -4,14 +4,20 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 public class PlotPane implements UiStateListener {
 
     private final PlotView plotView;
 
-    // state מקומי לציור
+    // ===== Local drawing state =====
     private String selectedKey = null;
-    private Set<String> highlightedKeys = Set.of();
+
+    // 🟠 תוצאות (קרובים ל-centroid)
+    private Set<String> resultKeys = Set.of();
+
+    // 🟢 קבוצה
+    private Set<String> groupKeys = Set.of();
 
     // callback החוצה (ל-Presenter)
     private Consumer<String> onItemClicked;
@@ -20,7 +26,6 @@ public class PlotPane implements UiStateListener {
         if (plotView == null) throw new IllegalArgumentException("plotView is null");
         this.plotView = plotView;
 
-        // Delegate: כשהמשתמש לוחץ על נקודה בגרף -> נודיע למי שמחוץ ל-PlotPane
         this.plotView.setOnItemClicked(key -> {
             if (onItemClicked != null) onItemClicked.accept(key);
         });
@@ -30,7 +35,6 @@ public class PlotPane implements UiStateListener {
         return plotView.getNode();
     }
 
-    // FxApp עדיין ישלח נקודות אחרי redraw
     public void setPoints(List<PlotPoint> points) {
         plotView.setPoints(points);
         refreshLabels();
@@ -40,7 +44,9 @@ public class PlotPane implements UiStateListener {
         this.onItemClicked = handler;
     }
 
-    // ===== UiStateListener implementation =====
+    // =========================================================
+    // UiStateListener
+    // =========================================================
 
     @Override
     public void onSelectionChanged(String selectedKey) {
@@ -49,38 +55,62 @@ public class PlotPane implements UiStateListener {
         refreshLabels();
     }
 
+    // 🟠 תוצאות מגיעות דרך primaryResults
     @Override
-    public void onHighlightsChanged(Set<String> highlightedKeys) {
-        this.highlightedKeys = (highlightedKeys == null) ? Set.of() : Set.copyOf(highlightedKeys);
-        plotView.setHighlights(this.highlightedKeys);
+    public void onPrimaryResultsChanged(List<Neighbor> results) {
+
+        if (results == null || results.isEmpty()) {
+            resultKeys = Set.of();
+        } else {
+            resultKeys = results.stream()
+                    .map(Neighbor::getKey)
+                    .filter(k -> k != null && !k.isBlank())
+                    .collect(Collectors.toSet());
+        }
+
+        plotView.setHighlights(resultKeys);
         refreshLabels();
     }
 
-
-    // כרגע PlotPane לא חייב להגיב לתוצאות/metric/status/error
+    // 🟢 קבוצה מגיעה דרך highlightedKeys
     @Override
-    public void onMetricChanged(DistanceStrategy metric) { }
+    public void onHighlightsChanged(Set<String> highlightedKeys) {
 
-    @Override
-    public void onPrimaryResultsChanged(List<Neighbor> results) { }
+        this.groupKeys = (highlightedKeys == null)
+                ? Set.of()
+                : Set.copyOf(highlightedKeys);
 
-    @Override
-    public void onStatusChanged(String message) { }
+        plotView.setGroupHighlights(groupKeys);
+        refreshLabels();
+    }
 
-    @Override
-    public void onErrorChanged(String message) { }
+    @Override public void onMetricChanged(DistanceStrategy metric) { }
+    @Override public void onStatusChanged(String message) { }
+    @Override public void onErrorChanged(String message) { }
+    @Override public void onOperationChanged(OperationType type) { }
+    @Override public void onProjectionResultChanged(CustomProjectionResult res) { }
 
-    // ===== helper =====
+    // =========================================================
+    // Labels
+    // =========================================================
+
     private void refreshLabels() {
+
         Set<String> labels = new HashSet<>();
-        if (selectedKey != null && !selectedKey.isBlank()) labels.add(selectedKey);
-        if (highlightedKeys != null) labels.addAll(highlightedKeys);
+
+        if (selectedKey != null && !selectedKey.isBlank())
+            labels.add(selectedKey);
+
+        labels.addAll(groupKeys);
+        labels.addAll(resultKeys);
+
         plotView.setLabels(labels);
     }
 
-    public void onOperationChanged(OperationType type) {
-        // לא רלוונטי ל-PlotPane
+    public void setGroupHighlights(Set<String> keys) {
+        if (plotView instanceof PcaPlotView2D pca) {
+            pca.setGroupHighlights(keys);
+        }
     }
-    public void onProjectionResultChanged(CustomProjectionResult res){}
-}
 
+}

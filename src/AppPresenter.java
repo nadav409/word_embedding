@@ -1,3 +1,4 @@
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -172,6 +173,36 @@ public class AppPresenter {
             uiState.setHighlightedKeys(Set.of());
         }
     }
+
+    public void onGroupingRequested(List<String> keys, int k) {
+
+        if (keys == null || keys.size() < 2) {
+            uiState.setError("Select at least 2 items");
+            return;
+        }
+
+        try {
+            uiState.setError("");
+            uiState.setStatus("Computing centroid...");
+
+            // 🟢 קודם כל – נצבע את הקבוצה
+            uiState.setHighlightedKeys(new HashSet<>(keys));
+
+            // 🟠 עכשיו נחשב את הקרובים למרכז
+            List<Neighbor> neighbors =
+                    controller.subspaceGrouping(keys, k);
+
+            uiState.setPrimaryResults(neighbors);
+
+            uiState.setStatus("Done");
+
+        } catch (Exception ex) {
+            uiState.setError("Error: " + ex.getMessage());
+            uiState.setStatus("");
+        }
+    }
+
+
 
 
 

@@ -12,14 +12,21 @@ public class PcaPlotView2D extends Pane implements PlotView {
 
     private List<PlotPoint> points = List.of();
     private String selectedKey = null;
+
+    // 🟠 תוצאות (closest to centroid וכו')
     private Set<String> highlighted = Set.of();
+
+    // 🟢 קבוצה שנבחרה
+    private Set<String> groupKeys = Set.of();
+
     private Set<String> labels = Set.of();
 
     private Consumer<String> clickCallback;
 
     private final Color baseColor = Color.rgb(50, 80, 255, 0.7);
     private final Color selectedColor = Color.ORANGE;
-    private final Color highlightColor = Color.rgb(0, 170, 120, 0.85);
+    private final Color resultColor = Color.rgb(255, 140, 0, 0.9);   // כתום
+    private final Color groupColor = Color.rgb(0, 190, 120, 0.95);   // ירוק
 
     private final Label hoverLabel;
 
@@ -42,14 +49,13 @@ public class PcaPlotView2D extends Pane implements PlotView {
 
         getChildren().add(hoverLabel);
 
-        // redraw אוטומטי כשמשנים גודל
         widthProperty().addListener((obs, a, b) -> redraw());
         heightProperty().addListener((obs, a, b) -> redraw());
     }
 
-    // =========================================================
+    // =====================================================
     // PlotView interface
-    // =========================================================
+    // =====================================================
 
     @Override
     public Node getNode() {
@@ -75,6 +81,12 @@ public class PcaPlotView2D extends Pane implements PlotView {
     }
 
     @Override
+    public void setGroupHighlights(Set<String> keys) {
+        this.groupKeys = (keys == null) ? Set.of() : Set.copyOf(keys);
+        redraw();
+    }
+
+    @Override
     public void setLabels(Set<String> keys) {
         this.labels = (keys == null) ? Set.of() : Set.copyOf(keys);
         redraw();
@@ -85,9 +97,9 @@ public class PcaPlotView2D extends Pane implements PlotView {
         this.clickCallback = callback;
     }
 
-    // =========================================================
+    // =====================================================
     // Drawing
-    // =========================================================
+    // =====================================================
 
     private void redraw() {
 
@@ -97,7 +109,6 @@ public class PcaPlotView2D extends Pane implements PlotView {
 
         if (points.isEmpty()) return;
 
-        // ===== Autoscale =====
         double minX = Double.POSITIVE_INFINITY, maxX = Double.NEGATIVE_INFINITY;
         double minY = Double.POSITIVE_INFINITY, maxY = Double.NEGATIVE_INFINITY;
 
@@ -128,18 +139,26 @@ public class PcaPlotView2D extends Pane implements PlotView {
             double cy = pad + (maxY - p.getY()) / dy * (h - 2 * pad);
 
             boolean isSelected = key != null && key.equals(selectedKey);
-            boolean isHighlighted = key != null && highlighted.contains(key);
+            boolean isGroup = key != null && groupKeys.contains(key);
+            boolean isResult = key != null && highlighted.contains(key);
 
             double radius;
             Color fill;
 
+            // סדר עדיפויות
             if (isSelected) {
-                radius = 3.6;
+                radius = 4.0;
                 fill = selectedColor;
-            } else if (isHighlighted) {
-                radius = 2.8;
-                fill = highlightColor;
-            } else {
+            }
+            else if (isGroup) {
+                radius = 3.6;
+                fill = groupColor;
+            }
+            else if (isResult) {
+                radius = 3.2;
+                fill = resultColor;
+            }
+            else {
                 radius = 2.1;
                 fill = baseColor;
             }
@@ -147,7 +166,6 @@ public class PcaPlotView2D extends Pane implements PlotView {
             Circle dot = new Circle(cx, cy, radius);
             dot.setFill(fill);
 
-            // Hitbox גדול יותר לאינטראקציה
             Circle hit = new Circle(cx, cy, 10);
             hit.setFill(Color.TRANSPARENT);
 
@@ -163,7 +181,6 @@ public class PcaPlotView2D extends Pane implements PlotView {
 
             getChildren().addAll(dot, hit);
 
-            // ===== Labels =====
             if (key != null && labels.contains(key)) {
                 Text t = new Text(key);
                 t.setMouseTransparent(true);
@@ -175,8 +192,7 @@ public class PcaPlotView2D extends Pane implements PlotView {
         }
 
         getChildren().addAll(labelNodes);
-        for (Text t : labelNodes) t.toFront();
-
+        labelNodes.forEach(Text::toFront);
         hoverLabel.toFront();
     }
 

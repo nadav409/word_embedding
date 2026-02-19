@@ -12,7 +12,11 @@ public interface PlotView {
 
     void setSelectedKey(String key);
 
+    // 🟠 תוצאות (למשל קרובים ל-centroid)
     void setHighlights(Set<String> keys);
+
+    // 🟢 קבוצה
+    void setGroupHighlights(Set<String> keys);
 
     void setLabels(Set<String> keys);
 

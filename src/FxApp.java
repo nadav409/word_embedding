@@ -20,6 +20,7 @@ public class FxApp extends Application {
     private VectorArithmeticPane vectorPane;
     private CustomProjectionPane projectionPane;
     private DistancePane distancePane;
+    private GroupingPane groupingPane;
 
     private ComboBox<Integer> xBox;
     private ComboBox<Integer> yBox;
@@ -58,12 +59,14 @@ public class FxApp extends Application {
         vectorPane = new VectorArithmeticPane(installer);
         projectionPane = new CustomProjectionPane(installer);
         distancePane = new DistancePane(installer);
+        groupingPane = new GroupingPane(installer);
 
         uiState.addListener(plotPane);
         uiState.addListener(neighborsPane);
         uiState.addListener(vectorPane);
         uiState.addListener(projectionPane);
         uiState.addListener(distancePane);
+        uiState.addListener(groupingPane);
 
         plotPane.setOnItemClicked(presenter::onItemSelected);
 
@@ -78,6 +81,8 @@ public class FxApp extends Application {
 
         distancePane.setOnMetricSelected(presenter::onMetricSelected);
         distancePane.setOnDistanceRequested(presenter::onDistanceRequested);
+
+        groupingPane.setOnGroupingRequested(presenter::onGroupingRequested);
 
         opBox = new ComboBox<>();
         opBox.getItems().addAll(OperationType.values());
@@ -124,8 +129,10 @@ public class FxApp extends Application {
                 neighborsPane.getNode(),
                 vectorPane.getNode(),
                 projectionPane.getNode(),
-                distancePane.getNode()
+                distancePane.getNode(),
+                groupingPane.getNode()
         );
+
 
         right.setPadding(new Insets(10));
         right.setPrefWidth(380);

@@ -67,7 +67,6 @@ public class UiState {
 
     public void setSelectedOperation(OperationType op) {
         if (op == null) return;
-        if (op == this.selectedOperation) return;
 
         this.selectedOperation = op;
 
