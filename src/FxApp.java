@@ -16,6 +16,10 @@ public class FxApp extends Application {
     private AppPresenter presenter;
 
     private PlotPane plotPane;
+
+    private PlotView plotView2D;
+    private PlotView plotView3D;
+
     private NeighborsPane neighborsPane;
     private VectorArithmeticPane vectorPane;
     private CustomProjectionPane projectionPane;
@@ -24,6 +28,8 @@ public class FxApp extends Application {
 
     private ComboBox<Integer> xBox;
     private ComboBox<Integer> yBox;
+    private ComboBox<Integer> zBox;
+    private CheckBox threeDCheck;
     private ComboBox<OperationType> opBox;
 
     private List<String> allKeys;
@@ -50,8 +56,23 @@ public class FxApp extends Application {
         uiState = new UiState();
         presenter = new AppPresenter(controller, uiState);
 
-        PlotView plotView = new PcaPlotView2D();
-        plotPane = new PlotPane(plotView);
+        // =========================
+        // Create views ONCE
+        // =========================
+
+        plotView2D = new PcaPlotView2D();
+        plotView3D = new PcaPlotView3D();
+
+        plotPane = new PlotPane(plotView2D, plotView3D);
+
+
+        uiState.addListener(plotPane);
+
+        plotPane.setOnItemClicked(presenter::onItemSelected);
+
+        // =========================
+        // Side panes
+        // =========================
 
         Consumer<TextField> installer = this::installAutocomplete;
 
@@ -61,14 +82,11 @@ public class FxApp extends Application {
         distancePane = new DistancePane(installer);
         groupingPane = new GroupingPane(installer);
 
-        uiState.addListener(plotPane);
         uiState.addListener(neighborsPane);
         uiState.addListener(vectorPane);
         uiState.addListener(projectionPane);
         uiState.addListener(distancePane);
         uiState.addListener(groupingPane);
-
-        plotPane.setOnItemClicked(presenter::onItemSelected);
 
         neighborsPane.setOnSearchPicked(presenter::onItemSelected);
         neighborsPane.setOnMetricSelected(presenter::onMetricSelected);
@@ -84,6 +102,10 @@ public class FxApp extends Application {
 
         groupingPane.setOnGroupingRequested(presenter::onGroupingRequested);
 
+        // =========================
+        // Operation selector
+        // =========================
+
         opBox = new ComboBox<>();
         opBox.getItems().addAll(OperationType.values());
         opBox.getSelectionModel().select(OperationType.NEIGHBORS);
@@ -96,33 +118,60 @@ public class FxApp extends Application {
         HBox opRow = new HBox(10, new Label("Operation:"), opBox);
         opRow.setPadding(new Insets(5));
 
+        // =========================
+        // Axis controls
+        // =========================
+
         xBox = new ComboBox<>();
         yBox = new ComboBox<>();
+        zBox = new ComboBox<>();
+        threeDCheck = new CheckBox("3D");
+
         Button redrawBtn = new Button("Redraw");
 
         int dim = controller.getPcaDimension();
+
         for (int i = 0; i < dim; i++) {
             xBox.getItems().add(i);
             yBox.getItems().add(i);
+            zBox.getItems().add(i);
         }
 
         xBox.getSelectionModel().select(0);
         yBox.getSelectionModel().select(1);
+        zBox.getSelectionModel().select(2);
+
+        zBox.setDisable(true);
 
         redrawBtn.setOnAction(e -> redraw());
         xBox.setOnAction(e -> redraw());
         yBox.setOnAction(e -> redraw());
+        zBox.setOnAction(e -> redraw());
+
+        threeDCheck.setOnAction(e -> {
+            boolean is3D = threeDCheck.isSelected();
+            zBox.setDisable(!is3D);
+            redraw();
+        });
 
         HBox top = new HBox(10,
                 new Label("X:"), xBox,
                 new Label("Y:"), yBox,
+                new Label("Z:"), zBox,
+                threeDCheck,
                 redrawBtn
         );
+
         top.setPadding(new Insets(10));
+
+        // =========================
+        // Layout
+        // =========================
 
         BorderPane root = new BorderPane();
         root.setTop(top);
-        root.setCenter(plotPane.getNode());
+        root.setCenter(plotPane);
+
 
         VBox right = new VBox(10,
                 opRow,
@@ -133,27 +182,10 @@ public class FxApp extends Application {
                 groupingPane.getNode()
         );
 
-
         right.setPadding(new Insets(10));
         right.setPrefWidth(380);
 
         root.setRight(right);
-
-        applyVisibility(uiState.getSelectedOperation());
-
-        uiState.addListener(new UiStateListener() {
-            @Override
-            public void onOperationChanged(OperationType type) {
-                applyVisibility(type);
-            }
-            @Override public void onSelectionChanged(String key) {}
-            @Override public void onMetricChanged(DistanceStrategy metric) {}
-            @Override public void onPrimaryResultsChanged(java.util.List<Neighbor> results) {}
-            @Override public void onHighlightsChanged(java.util.Set<String> keys) {}
-            @Override public void onStatusChanged(String msg) {}
-            @Override public void onErrorChanged(String msg) {}
-            @Override public void onProjectionResultChanged(CustomProjectionResult res) {}
-        });
 
         stage.setScene(new Scene(root, 1250, 760));
         stage.setTitle("PCA Plot");
@@ -162,16 +194,45 @@ public class FxApp extends Application {
         redraw();
     }
 
-    // =====================================
-    // Shared Autocomplete (FINAL VERSION)
-    // =====================================
+    // =========================
+    // REDRAW
+    // =========================
+
+    private void redraw() {
+
+        Integer x = xBox.getValue();
+        Integer y = yBox.getValue();
+        if (x == null || y == null) return;
+
+        boolean is3D = threeDCheck.isSelected();
+        plotPane.setMode(is3D);
+
+        if (is3D) {
+
+            Integer z = zBox.getValue();
+            if (z == null) return;
+
+            controller.setAxes3D(x, y, z);
+            plotPane.setPoints(controller.getAllPcaPoints3D());
+
+        } else {
+
+            controller.setAxes2D(x, y);
+            plotPane.setPoints(controller.getAllPcaPoints2D());
+        }
+    }
+
+
+    // =========================
+    // Autocomplete
+    // =========================
+
     private void installAutocomplete(TextField field) {
 
         ContextMenu popup = new ContextMenu();
 
         field.textProperty().addListener((obs, oldText, newText) -> {
 
-            // 🔹 אל תפתח popup אם השדה לא בפוקוס
             if (!field.isFocused()) {
                 popup.hide();
                 return;
@@ -206,29 +267,6 @@ public class FxApp extends Application {
             if (!popup.isShowing())
                 popup.show(field, Side.BOTTOM, 0, 0);
         });
-    }
-
-
-    private void applyVisibility(OperationType type) {
-        neighborsPane.getNode().setVisible(type == OperationType.NEIGHBORS);
-        neighborsPane.getNode().setManaged(type == OperationType.NEIGHBORS);
-
-        vectorPane.getNode().setVisible(type == OperationType.ARITHMETIC);
-        vectorPane.getNode().setManaged(type == OperationType.ARITHMETIC);
-
-        projectionPane.getNode().setVisible(type == OperationType.PROJECTION);
-        projectionPane.getNode().setManaged(type == OperationType.PROJECTION);
-
-        distancePane.getNode().setVisible(type == OperationType.DISTANCE);
-        distancePane.getNode().setManaged(type == OperationType.DISTANCE);
-    }
-
-    private void redraw() {
-        Integer x = xBox.getValue();
-        Integer y = yBox.getValue();
-        if (x == null || y == null) return;
-        controller.setAxes2D(x, y);
-        plotPane.setPoints(controller.getAllPcaPoints2D());
     }
 
     public static void main(String[] args) {

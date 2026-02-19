@@ -21,9 +21,6 @@ public class AxisSelection {
         if (xIndex < 0 || yIndex < 0 || zIndex < 0)
             throw new IllegalArgumentException("indices must be >= 0");
 
-        if (xIndex == yIndex || xIndex == zIndex || yIndex == zIndex)
-            throw new IllegalArgumentException("X,Y,Z must be different");
-
         this.xIndex = xIndex;
         this.yIndex = yIndex;
         this.zIndex = zIndex;

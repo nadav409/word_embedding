@@ -1,4 +1,4 @@
-import javafx.scene.Node;
+import javafx.scene.layout.StackPane;
 
 import java.util.HashSet;
 import java.util.List;
@@ -6,56 +6,65 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-public class PlotPane implements UiStateListener {
+public class PlotPane extends StackPane implements UiStateListener {
 
-    private final PlotView plotView;
+    private final PlotView view2D;
+    private final PlotView view3D;
+    private PlotView activeView;
 
-    // ===== Local drawing state =====
     private String selectedKey = null;
-
-    // 🟠 תוצאות (קרובים ל-centroid)
     private Set<String> resultKeys = Set.of();
-
-    // 🟢 קבוצה
     private Set<String> groupKeys = Set.of();
 
-    // callback החוצה (ל-Presenter)
     private Consumer<String> onItemClicked;
 
-    public PlotPane(PlotView plotView) {
-        if (plotView == null) throw new IllegalArgumentException("plotView is null");
-        this.plotView = plotView;
+    public PlotPane(PlotView view2D, PlotView view3D) {
+        this.view2D = view2D;
+        this.view3D = view3D;
 
-        this.plotView.setOnItemClicked(key -> {
-            if (onItemClicked != null) onItemClicked.accept(key);
+        setMode(false); // default 2D
+    }
+
+    public void setMode(boolean is3D) {
+
+        PlotView newView = is3D ? view3D : view2D;
+
+        if (activeView == newView)
+            return;
+
+        activeView = newView;
+
+        getChildren().clear();
+        getChildren().add(activeView.getNode());
+
+        activeView.setOnItemClicked(key -> {
+            if (onItemClicked != null)
+                onItemClicked.accept(key);
         });
-    }
 
-    public Node getNode() {
-        return plotView.getNode();
-    }
-
-    public void setPoints(List<PlotPoint> points) {
-        plotView.setPoints(points);
-        refreshLabels();
+        refreshState();
     }
 
     public void setOnItemClicked(Consumer<String> handler) {
         this.onItemClicked = handler;
     }
 
-    // =========================================================
-    // UiStateListener
-    // =========================================================
-
-    @Override
-    public void onSelectionChanged(String selectedKey) {
-        this.selectedKey = selectedKey;
-        plotView.setSelectedKey(selectedKey);
+    public void setPoints(List<PlotPoint> points) {
+        view2D.setPoints(points);
+        view3D.setPoints(points);
         refreshLabels();
     }
 
-    // 🟠 תוצאות מגיעות דרך primaryResults
+    // =========================
+    // UiStateListener
+    // =========================
+
+    @Override
+    public void onSelectionChanged(String key) {
+        this.selectedKey = key;
+        refreshState();
+    }
+
     @Override
     public void onPrimaryResultsChanged(List<Neighbor> results) {
 
@@ -68,31 +77,31 @@ public class PlotPane implements UiStateListener {
                     .collect(Collectors.toSet());
         }
 
-        plotView.setHighlights(resultKeys);
-        refreshLabels();
+        refreshState();
     }
 
-    // 🟢 קבוצה מגיעה דרך highlightedKeys
     @Override
     public void onHighlightsChanged(Set<String> highlightedKeys) {
 
-        this.groupKeys = (highlightedKeys == null)
+        groupKeys = highlightedKeys == null
                 ? Set.of()
                 : Set.copyOf(highlightedKeys);
 
-        plotView.setGroupHighlights(groupKeys);
-        refreshLabels();
+        refreshState();
     }
 
-    @Override public void onMetricChanged(DistanceStrategy metric) { }
-    @Override public void onStatusChanged(String message) { }
-    @Override public void onErrorChanged(String message) { }
-    @Override public void onOperationChanged(OperationType type) { }
-    @Override public void onProjectionResultChanged(CustomProjectionResult res) { }
+    private void refreshState() {
+        view2D.setSelectedKey(selectedKey);
+        view3D.setSelectedKey(selectedKey);
 
-    // =========================================================
-    // Labels
-    // =========================================================
+        view2D.setHighlights(resultKeys);
+        view3D.setHighlights(resultKeys);
+
+        view2D.setGroupHighlights(groupKeys);
+        view3D.setGroupHighlights(groupKeys);
+
+        refreshLabels();
+    }
 
     private void refreshLabels() {
 
@@ -104,13 +113,13 @@ public class PlotPane implements UiStateListener {
         labels.addAll(groupKeys);
         labels.addAll(resultKeys);
 
-        plotView.setLabels(labels);
+        view2D.setLabels(labels);
+        view3D.setLabels(labels);
     }
 
-    public void setGroupHighlights(Set<String> keys) {
-        if (plotView instanceof PcaPlotView2D pca) {
-            pca.setGroupHighlights(keys);
-        }
-    }
-
+    @Override public void onMetricChanged(DistanceStrategy metric) {}
+    @Override public void onStatusChanged(String message) {}
+    @Override public void onErrorChanged(String message) {}
+    @Override public void onOperationChanged(OperationType type) {}
+    @Override public void onProjectionResultChanged(CustomProjectionResult res) {}
 }

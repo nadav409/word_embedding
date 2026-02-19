@@ -82,6 +82,27 @@ public class AppController {
         return points;
     }
 
+    public List<PlotPoint> getAllPcaPoints3D() {
+
+        EmbeddingSpace pcaSpace = provider.getSpace(SpaceId.PCA);
+
+        List<PlotPoint> points = new java.util.ArrayList<>(pcaSpace.size());
+
+        for (Embedding e : pcaSpace.getAll()) {
+
+            Vector v = e.getVector();
+
+            double x = v.get(axes.getXIndex());
+            double y = v.get(axes.getYIndex());
+            double z = v.get(axes.getZIndex());
+
+            points.add(new PlotPoint(e.getKey(), x, y, z));
+        }
+
+        return points;
+    }
+
+
     public int getPcaDimension() {
         return provider.getSpace(SpaceId.PCA).dimension();
     }
