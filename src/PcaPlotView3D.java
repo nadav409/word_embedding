@@ -7,6 +7,7 @@ import javafx.scene.shape.Sphere;
 import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Translate;
 import javafx.geometry.Point2D;
+import javafx.scene.effect.Glow;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -41,7 +42,7 @@ public class PcaPlotView3D extends Pane implements PlotView {
         setPrefSize(900, 700);
 
         subScene = new SubScene(world, 900, 700, true, SceneAntialiasing.BALANCED);
-        subScene.setFill(Color.rgb(240, 240, 240));
+        subScene.setFill(Color.rgb(5, 8, 20));
         subScene.widthProperty().bind(widthProperty());
         subScene.heightProperty().bind(heightProperty());
 
@@ -138,6 +139,46 @@ public class PcaPlotView3D extends Pane implements PlotView {
             else material.setDiffuseColor(Color.rgb(50, 80, 255));
 
             sphere.setMaterial(material);
+            Glow glow = new Glow();
+
+            if (isSelected) {
+
+                material.setDiffuseColor(Color.web("#ff9800")); // 🟠 כתום
+                material.setSpecularColor(Color.WHITE);
+                material.setSpecularPower(64);
+                glow.setLevel(0.9);
+
+            } else if (isHighlighted) {
+
+                material.setDiffuseColor(Color.web("#39ff14")); // 🟢 שכנים
+                material.setSpecularColor(Color.web("#ccffcc"));
+                material.setSpecularPower(48);
+                glow.setLevel(0.85);
+
+            } else if (isGroup) {
+
+                material.setDiffuseColor(Color.web("#ff9800")); // 🟠 כתום
+                material.setSpecularColor(Color.WHITE);
+                material.setSpecularPower(64);
+                glow.setLevel(0.9);
+
+            } else {
+
+                material.setDiffuseColor(Color.web("#3d7bff")); // 🔵 רגילים
+                material.setSpecularColor(Color.web("#99ccff"));
+                material.setSpecularPower(32);
+                glow.setLevel(0.2);
+            }
+
+            sphere.setEffect(glow);
+
+
+
+
+
+
+            sphere.setEffect(glow);
+
             sphere.setTranslateX(p.getX() * scale);
             sphere.setTranslateY(-p.getY() * scale);
             sphere.setTranslateZ((p.getZ() == null ? 0 : p.getZ()) * scale);
@@ -173,12 +214,14 @@ public class PcaPlotView3D extends Pane implements PlotView {
         Label tag = new Label(text);
 
         tag.setStyle("""
-            -fx-background-color: rgba(20,20,20,0.85);
-            -fx-text-fill: white;
-            -fx-padding: 3 7 3 7;
-            -fx-background-radius: 6;
-            -fx-font-size: 11px;
-        """);
+    -fx-background-color: rgba(30,30,40,0.95);
+    -fx-text-fill: #6ec1ff;
+    -fx-padding: 4 9 4 9;
+    -fx-background-radius: 8;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+""");
+
 
         tag.setMouseTransparent(true);
         return tag;

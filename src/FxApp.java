@@ -187,9 +187,16 @@ public class FxApp extends Application {
 
         root.setRight(right);
 
-        stage.setScene(new Scene(root, 1250, 760));
-        stage.setTitle("PCA Plot");
+        Scene scene = new Scene(root, 1250, 760);
+
+        scene.getStylesheets().add(
+                getClass().getResource("dark-theme.css").toExternalForm()
+        );
+
+        stage.setScene(scene);
+        stage.setTitle("EMBEDDING PROJECTOR");
         stage.show();
+
 
         redraw();
     }
