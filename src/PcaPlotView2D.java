@@ -1,8 +1,11 @@
 import javafx.scene.Node;
+import javafx.scene.Group;
 import javafx.scene.control.Label;
+import javafx.scene.effect.DropShadow;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
 
 import java.util.*;
@@ -13,49 +16,52 @@ public class PcaPlotView2D extends Pane implements PlotView {
     private List<PlotPoint> points = List.of();
     private String selectedKey = null;
 
-    // 🟠 תוצאות (closest to centroid וכו')
-    private Set<String> highlighted = Set.of();
-
-    // 🟢 קבוצה שנבחרה
-    private Set<String> groupKeys = Set.of();
-
+    private Set<String> highlighted = Set.of(); // neighbors
+    private Set<String> groupKeys = Set.of();   // groups
     private Set<String> labels = Set.of();
 
     private Consumer<String> clickCallback;
 
-    private final Color baseColor = Color.rgb(50, 80, 255, 0.7);
-    private final Color selectedColor = Color.ORANGE;
-    private final Color resultColor = Color.rgb(255, 140, 0, 0.9);   // כתום
-    private final Color groupColor = Color.rgb(0, 190, 120, 0.95);   // ירוק
-
+    private final Group world = new Group();
     private final Label hoverLabel;
+
+    private double scale = 1.0;
+    private double anchorX;
+    private double anchorY;
 
     public PcaPlotView2D() {
 
         setPrefSize(900, 700);
+        setStyle("-fx-background-color: #020617;");
+
+        // 🔒 prevent world from leaking outside bounds
+        Rectangle clip = new Rectangle();
+        clip.widthProperty().bind(widthProperty());
+        clip.heightProperty().bind(heightProperty());
+        setClip(clip);
+
+        world.setPickOnBounds(false);
 
         hoverLabel = new Label();
         hoverLabel.setVisible(false);
         hoverLabel.setMouseTransparent(true);
-        hoverLabel.setStyle(
-                "-fx-background-color: rgba(255,255,255,0.92);" +
-                        "-fx-border-color: rgba(0,0,0,0.35);" +
-                        "-fx-border-radius: 6;" +
-                        "-fx-background-radius: 6;" +
-                        "-fx-padding: 3 8 3 8;" +
-                        "-fx-font-size: 12px;" +
-                        "-fx-font-weight: bold;"
-        );
+        hoverLabel.setStyle("""
+            -fx-background-color: rgba(20,20,20,0.9);
+            -fx-text-fill: white;
+            -fx-padding: 4 8 4 8;
+            -fx-background-radius: 8;
+            -fx-font-size: 12px;
+            -fx-font-weight: bold;
+        """);
 
-        getChildren().add(hoverLabel);
+        getChildren().add(world);
+        world.getChildren().add(hoverLabel);
+
+        enableMouseControl();
 
         widthProperty().addListener((obs, a, b) -> redraw());
         heightProperty().addListener((obs, a, b) -> redraw());
     }
-
-    // =====================================================
-    // PlotView interface
-    // =====================================================
 
     @Override
     public Node getNode() {
@@ -64,7 +70,7 @@ public class PcaPlotView2D extends Pane implements PlotView {
 
     @Override
     public void setPoints(List<PlotPoint> pts) {
-        this.points = (pts == null) ? List.of() : List.copyOf(pts);
+        this.points = pts == null ? List.of() : List.copyOf(pts);
         redraw();
     }
 
@@ -76,19 +82,19 @@ public class PcaPlotView2D extends Pane implements PlotView {
 
     @Override
     public void setHighlights(Set<String> keys) {
-        this.highlighted = (keys == null) ? Set.of() : Set.copyOf(keys);
+        this.highlighted = keys == null ? Set.of() : Set.copyOf(keys);
         redraw();
     }
 
     @Override
     public void setGroupHighlights(Set<String> keys) {
-        this.groupKeys = (keys == null) ? Set.of() : Set.copyOf(keys);
+        this.groupKeys = keys == null ? Set.of() : Set.copyOf(keys);
         redraw();
     }
 
     @Override
     public void setLabels(Set<String> keys) {
-        this.labels = (keys == null) ? Set.of() : Set.copyOf(keys);
+        this.labels = keys == null ? Set.of() : Set.copyOf(keys);
         redraw();
     }
 
@@ -97,14 +103,10 @@ public class PcaPlotView2D extends Pane implements PlotView {
         this.clickCallback = callback;
     }
 
-    // =====================================================
-    // Drawing
-    // =====================================================
-
     private void redraw() {
 
-        getChildren().clear();
-        getChildren().add(hoverLabel);
+        world.getChildren().clear();
+        world.getChildren().add(hoverLabel);
         hoverLabel.setVisible(false);
 
         if (points.isEmpty()) return;
@@ -119,17 +121,12 @@ public class PcaPlotView2D extends Pane implements PlotView {
             maxY = Math.max(maxY, p.getY());
         }
 
-        double w = getWidth() > 0 ? getWidth() : getPrefWidth();
-        double h = getHeight() > 0 ? getHeight() : getPrefHeight();
-        double pad = 30;
+        double w = getWidth();
+        double h = getHeight();
+        double pad = 40;
 
-        double dx = maxX - minX;
-        if (dx == 0) dx = 1e-9;
-
-        double dy = maxY - minY;
-        if (dy == 0) dy = 1e-9;
-
-        List<Text> labelNodes = new ArrayList<>();
+        double dx = Math.max(maxX - minX, 1e-9);
+        double dy = Math.max(maxY - minY, 1e-9);
 
         for (PlotPoint p : points) {
 
@@ -139,60 +136,63 @@ public class PcaPlotView2D extends Pane implements PlotView {
             double cy = pad + (maxY - p.getY()) / dy * (h - 2 * pad);
 
             boolean isSelected = key != null && key.equals(selectedKey);
+            boolean isNeighbor = key != null && highlighted.contains(key);
             boolean isGroup = key != null && groupKeys.contains(key);
-            boolean isResult = key != null && highlighted.contains(key);
 
             double radius;
             Color fill;
 
-            // סדר עדיפויות
             if (isSelected) {
-                radius = 4.0;
-                fill = selectedColor;
+                radius = 5;
+                fill = Color.web("#ff9d00");   // orange
+            }
+            else if (isNeighbor) {
+                radius = 4.5;
+                fill = Color.web("#39ff14");   // neon green
             }
             else if (isGroup) {
-                radius = 3.6;
-                fill = groupColor;
-            }
-            else if (isResult) {
-                radius = 3.2;
-                fill = resultColor;
+                radius = 4.5;
+                fill = Color.web("#b86cff");   // violet
             }
             else {
-                radius = 2.1;
-                fill = baseColor;
+                radius = 3.2;
+                fill = Color.web("#3b82f6");   // clean blue
             }
 
             Circle dot = new Circle(cx, cy, radius);
             dot.setFill(fill);
 
-            Circle hit = new Circle(cx, cy, 10);
+            DropShadow glow = new DropShadow();
+            glow.setColor(fill);
+            glow.setRadius(isSelected ? 16 :
+                    isNeighbor || isGroup ? 10 : 5);
+
+            dot.setEffect(glow);
+
+            Circle hit = new Circle(cx, cy, 12);
             hit.setFill(Color.TRANSPARENT);
 
             hit.setOnMouseEntered(e -> showHoverLabel(cx, cy, key));
-            hit.setOnMouseMoved(e -> showHoverLabel(cx, cy, key));
             hit.setOnMouseExited(e -> hoverLabel.setVisible(false));
 
             hit.setOnMouseClicked(e -> {
-                if (clickCallback != null && key != null) {
+                if (clickCallback != null && key != null)
                     clickCallback.accept(key);
-                }
             });
 
-            getChildren().addAll(dot, hit);
+            world.getChildren().addAll(dot, hit);
 
             if (key != null && labels.contains(key)) {
                 Text t = new Text(key);
                 t.setMouseTransparent(true);
+                t.setFill(Color.WHITE);
                 t.setStyle("-fx-font-size: 12px; -fx-font-weight: bold;");
-                t.setX(cx + 6);
-                t.setY(cy - 6);
-                labelNodes.add(t);
+                t.setX(cx + 8);
+                t.setY(cy - 8);
+                world.getChildren().add(t);
             }
         }
 
-        getChildren().addAll(labelNodes);
-        labelNodes.forEach(Text::toFront);
         hoverLabel.toFront();
     }
 
@@ -201,19 +201,54 @@ public class PcaPlotView2D extends Pane implements PlotView {
         if (text == null) return;
 
         hoverLabel.setText(text);
-
-        double lw = hoverLabel.prefWidth(-1);
-        double lh = hoverLabel.prefHeight(-1);
-
-        double lx = x - lw / 2.0;
-        double ly = y - 14 - lh;
-
-        if (lx < 5) lx = 5;
-        if (ly < 5) ly = 5;
-
-        hoverLabel.setLayoutX(lx);
-        hoverLabel.setLayoutY(ly);
+        hoverLabel.setLayoutX(x + 8);
+        hoverLabel.setLayoutY(y - 22);
         hoverLabel.setVisible(true);
         hoverLabel.toFront();
+    }
+
+    private void enableMouseControl() {
+
+        setOnScroll(event -> {
+
+            double zoomFactor = 1.08;
+            if (event.getDeltaY() < 0) zoomFactor = 1 / zoomFactor;
+
+            scale *= zoomFactor;
+
+            // limit zoom
+            scale = Math.max(0.3, Math.min(5.0, scale));
+
+            world.setScaleX(scale);
+            world.setScaleY(scale);
+
+            event.consume();
+        });
+
+        setOnMousePressed(event -> {
+            anchorX = event.getSceneX();
+            anchorY = event.getSceneY();
+        });
+
+        setOnMouseDragged(event -> {
+
+            double deltaX = event.getSceneX() - anchorX;
+            double deltaY = event.getSceneY() - anchorY;
+
+            double newX = world.getTranslateX() + deltaX;
+            double newY = world.getTranslateY() + deltaY;
+
+            // limit drag
+            double maxTranslate = 2000;
+
+            newX = Math.max(-maxTranslate, Math.min(maxTranslate, newX));
+            newY = Math.max(-maxTranslate, Math.min(maxTranslate, newY));
+
+            world.setTranslateX(newX);
+            world.setTranslateY(newY);
+
+            anchorX = event.getSceneX();
+            anchorY = event.getSceneY();
+        });
     }
 }
