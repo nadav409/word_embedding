@@ -149,4 +149,30 @@ public class AppPresenter {
         }
     }
 
+    public void onDistanceRequested(String a, String b) {
+
+        if (a == null || b == null || a.isBlank() || b.isBlank()) {
+            uiState.setError("Select two items");
+            return;
+        }
+
+        try {
+            uiState.setError("");
+
+            double dist = controller.distanceBetween(a, b);
+
+            uiState.setStatus("Distance = " +
+                    String.format(java.util.Locale.ROOT, "%.6f", dist));
+
+            // 🔥 כאן הקסם
+            uiState.setHighlightedKeys(Set.of(a, b));
+
+        } catch (Exception ex) {
+            uiState.setError("Error: " + ex.getMessage());
+            uiState.setHighlightedKeys(Set.of());
+        }
+    }
+
+
+
 }

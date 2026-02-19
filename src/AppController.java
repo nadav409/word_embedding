@@ -98,6 +98,27 @@ public class AppController {
         return result.getTopK();
     }
 
+    public double distanceBetween(String word1, String word2) {
+
+        if (word1 == null || word1.isBlank() ||
+                word2 == null || word2.isBlank()) {
+            throw new IllegalArgumentException("Words cannot be empty");
+        }
+
+        EmbeddingSpace space = provider.getSpace(SpaceId.FULL);
+
+        Embedding e1 = space.get(word1);
+        Embedding e2 = space.get(word2);
+
+        if (e1 == null) throw new UnknownWordException(word1);
+        if (e2 == null) throw new UnknownWordException(word2);
+
+        DistanceStrategy strategy = provider.getDistanceStrategy();
+
+        return strategy.compute(e1.getVector(), e2.getVector());
+    }
+
+
 
 
 
