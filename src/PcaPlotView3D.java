@@ -7,7 +7,6 @@ import javafx.scene.shape.Sphere;
 import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Translate;
 import javafx.geometry.Point2D;
-import javafx.geometry.Point3D;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -30,7 +29,9 @@ public class PcaPlotView3D extends Pane implements PlotView {
     private final Translate camTranslate = new Translate(0, 0, -1500);
 
     private final Pane overlay = new Pane();
-    private final Label tooltip = new Label();
+    private final Label hoverTooltip = new Label();
+
+    private final Map<Label, Sphere> tagMap = new HashMap<>();
 
     private double anchorX;
     private double anchorY;
@@ -47,74 +48,71 @@ public class PcaPlotView3D extends Pane implements PlotView {
         camera.setNearClip(0.1);
         camera.setFarClip(10000);
         camera.setFieldOfView(35);
-
         camera.getTransforms().addAll(camRotateY, camRotateX, camTranslate);
         subScene.setCamera(camera);
 
         AmbientLight ambient = new AmbientLight(Color.WHITE);
         PointLight light = new PointLight(Color.WHITE);
         light.setTranslateZ(-1000);
-
         world.getChildren().addAll(ambient, light);
 
-        tooltip.setStyle("""
-            -fx-background-color: white;
-            -fx-padding: 4 6 4 6;
-            -fx-border-color: gray;
+        hoverTooltip.setStyle("""
+            -fx-background-color: rgba(20,20,20,0.85);
+            -fx-text-fill: white;
+            -fx-padding: 4 8 4 8;
+            -fx-background-radius: 6;
             -fx-font-size: 11px;
+            -fx-font-weight: bold;
         """);
-        tooltip.setVisible(false);
+        hoverTooltip.setVisible(false);
 
         overlay.setMouseTransparent(true);
-        overlay.getChildren().add(tooltip);
+        overlay.getChildren().add(hoverTooltip);
 
         getChildren().addAll(subScene, overlay);
 
         enableMouseControl();
     }
 
-    @Override
-    public Node getNode() {
-        return this;
-    }
+    @Override public Node getNode() { return this; }
 
     @Override
     public void setPoints(List<PlotPoint> points) {
         this.points = points;
-        redraw();
+        buildScene();
     }
 
     @Override
     public void setSelectedKey(String key) {
         this.selectedKey = key;
-        redraw();
+        buildScene();
     }
 
     @Override
     public void setHighlights(Set<String> keys) {
         this.highlighted = keys == null ? Set.of() : Set.copyOf(keys);
-        redraw();
+        buildScene();
     }
 
     @Override
     public void setGroupHighlights(Set<String> keys) {
         this.groupKeys = keys == null ? Set.of() : Set.copyOf(keys);
-        redraw();
+        buildScene();
     }
 
-    @Override
-    public void setLabels(Set<String> keys) {}
+    @Override public void setLabels(Set<String> keys) {}
 
     @Override
     public void setOnItemClicked(Consumer<String> handler) {
         this.clickCallback = handler;
     }
 
-    private void redraw() {
+    private void buildScene() {
 
         world.getChildren().removeIf(n -> n instanceof Sphere);
-
-        tooltip.setVisible(false);
+        overlay.getChildren().clear();
+        overlay.getChildren().add(hoverTooltip);
+        tagMap.clear();
 
         if (points.isEmpty()) return;
 
@@ -123,7 +121,6 @@ public class PcaPlotView3D extends Pane implements PlotView {
         for (PlotPoint p : points) {
 
             String key = p.getKey();
-
             boolean isSelected = key.equals(selectedKey);
             boolean isHighlighted = highlighted.contains(key);
             boolean isGroup = groupKeys.contains(key);
@@ -135,18 +132,12 @@ public class PcaPlotView3D extends Pane implements PlotView {
 
             PhongMaterial material = new PhongMaterial();
 
-            if (isSelected) {
-                material.setDiffuseColor(Color.ORANGE);
-            } else if (isGroup) {
-                material.setDiffuseColor(Color.LIMEGREEN);
-            } else if (isHighlighted) {
-                material.setDiffuseColor(Color.DEEPSKYBLUE);
-            } else {
-                material.setDiffuseColor(Color.rgb(50, 80, 255));
-            }
+            if (isSelected) material.setDiffuseColor(Color.ORANGE);
+            else if (isGroup) material.setDiffuseColor(Color.LIMEGREEN);
+            else if (isHighlighted) material.setDiffuseColor(Color.DEEPSKYBLUE);
+            else material.setDiffuseColor(Color.rgb(50, 80, 255));
 
             sphere.setMaterial(material);
-
             sphere.setTranslateX(p.getX() * scale);
             sphere.setTranslateY(-p.getY() * scale);
             sphere.setTranslateZ((p.getZ() == null ? 0 : p.getZ()) * scale);
@@ -156,41 +147,67 @@ public class PcaPlotView3D extends Pane implements PlotView {
                     clickCallback.accept(key);
             });
 
-            sphere.setOnMouseEntered(e -> showTooltip(sphere, key));
-            sphere.setOnMouseExited(e -> {
-                if (!isSelected && !isHighlighted && !isGroup)
-                    tooltip.setVisible(false);
-            });
+            sphere.setOnMouseEntered(e -> showHover(sphere, key));
+            sphere.setOnMouseExited(e -> hoverTooltip.setVisible(false));
 
             if (isSelected || isHighlighted || isGroup) {
-                showTooltip(sphere, key);
+                Label tag = createTag(key);
+                overlay.getChildren().add(tag);
+                tagMap.put(tag, sphere);
             }
 
             world.getChildren().add(sphere);
         }
+
+        updateAllTagPositions();
     }
 
-    private void showTooltip(Sphere sphere, String text) {
+    private void showHover(Sphere sphere, String text) {
+        hoverTooltip.setText(text);
+        updateSinglePosition(sphere, hoverTooltip);
+        hoverTooltip.setVisible(true);
+    }
 
-        tooltip.setText(text);
+    private Label createTag(String text) {
 
-        javafx.geometry.Point2D screenPoint =
-                sphere.localToScreen(0, 0);
+        Label tag = new Label(text);
 
+        tag.setStyle("""
+            -fx-background-color: rgba(20,20,20,0.85);
+            -fx-text-fill: white;
+            -fx-padding: 3 7 3 7;
+            -fx-background-radius: 6;
+            -fx-font-size: 11px;
+        """);
+
+        tag.setMouseTransparent(true);
+        return tag;
+    }
+
+    private void updateSinglePosition(Sphere sphere, Label label) {
+
+        Point2D screenPoint = sphere.localToScreen(0, 0);
         if (screenPoint == null) return;
 
-        javafx.geometry.Point2D localPoint =
-                this.screenToLocal(screenPoint);
-
-        tooltip.setLayoutX(localPoint.getX() + 8);
-        tooltip.setLayoutY(localPoint.getY() - 8);
-        tooltip.setVisible(true);
+        Point2D local = this.screenToLocal(screenPoint);
+        label.setLayoutX(local.getX() + 8);
+        label.setLayoutY(local.getY() - 8);
     }
 
+    private void updateAllTagPositions() {
+
+        for (Map.Entry<Label, Sphere> entry : tagMap.entrySet()) {
+            updateSinglePosition(entry.getValue(), entry.getKey());
+        }
+
+        if (hoverTooltip.isVisible()) {
+            // reposition hover
+            tagMap.values().stream().findFirst()
+                    .ifPresent(s -> updateSinglePosition(s, hoverTooltip));
+        }
+    }
 
     private void enableMouseControl() {
-
-        subScene.setFocusTraversable(true);
 
         subScene.setOnMousePressed(event -> {
             anchorX = event.getSceneX();
@@ -214,10 +231,13 @@ public class PcaPlotView3D extends Pane implements PlotView {
 
             anchorX = event.getSceneX();
             anchorY = event.getSceneY();
+
+            updateAllTagPositions();
         });
 
-        subScene.setOnScroll(event ->
-                camTranslate.setZ(camTranslate.getZ() + event.getDeltaY() * 3.0)
-        );
+        subScene.setOnScroll(event -> {
+            camTranslate.setZ(camTranslate.getZ() + event.getDeltaY() * 3.0);
+            updateAllTagPositions();
+        });
     }
 }
