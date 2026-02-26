@@ -39,7 +39,6 @@ public class PcaPlotView3D extends Pane implements PlotView {
 
     public PcaPlotView3D() {
 
-        
 
         subScene = new SubScene(world, 900, 700, true, SceneAntialiasing.BALANCED);
         subScene.setPickOnBounds(true);

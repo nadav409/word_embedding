@@ -1,3 +1,4 @@
+import java.util.ArrayList;
 import java.util.List;
 
 public class AppController {
@@ -6,14 +7,19 @@ public class AppController {
     private final AxisSelection axes;
 
     public AppController(Provider provider) {
-        if (provider == null)
+        if (provider == null) {
             throw new IllegalArgumentException("provider is null");
+        }
 
         this.provider = provider;
 
-        // תצוגה מתחילה ב-PCA על שני הרכיבים הראשונים
+        // Start with PCA projection on the first two components (0,1)
         this.axes = new AxisSelection(0, 1);
     }
+
+    // =========================
+    // Axes selection (2D / 3D)
+    // =========================
 
     public void setAxes2D(int x, int y) {
         axes.set2D(x, y);
@@ -27,7 +33,11 @@ public class AppController {
         return axes;
     }
 
-    // ✅ allow FX to change metric through controller only
+    // =========================
+    // Metric / distance strategy
+    // =========================
+
+    // Allow UI to change metric through the controller only
     public void setDistanceStrategy(DistanceStrategy strategy) {
         provider.setDistanceStrategy(strategy);
     }
@@ -36,30 +46,58 @@ public class AppController {
         return provider.getDistanceStrategy();
     }
 
+    // =========================
+    // Operations (research actions)
+    // =========================
+
     public List<Neighbor> nearestNeighbors(String word, int k) {
         NearestNeighborsOperation op = new NearestNeighborsOperation(provider, SpaceId.FULL, word, k);
         NearestNeighborsResult result = (NearestNeighborsResult) op.execute();
         return result.getNeighbors();
     }
 
+    public CustomProjectionResult customProjection(String a, String b, int k) {
+        CustomProjectionOperation op = new CustomProjectionOperation(provider, SpaceId.FULL, a, b, k);
+        return (CustomProjectionResult) op.execute();
+    }
+
+    public List<Neighbor> vectorArithmetic(VectorExpression expr, int k) {
+        VectorArithmeticOperation op = new VectorArithmeticOperation(provider, SpaceId.FULL, expr, k);
+        VectorArithmeticResult result = (VectorArithmeticResult) op.execute();
+        return result.getTopK();
+    }
+
+    public List<Neighbor> subspaceGrouping(List<String> keys, int k) {
+        SubspaceGroupingOperation op = new SubspaceGroupingOperation(provider, SpaceId.FULL, keys, k);
+        SubspaceGroupingResult result = (SubspaceGroupingResult) op.execute();
+        return result.getNeighbors();
+    }
+
+    // =========================
+    // PCA plotting helpers
+    // =========================
+
     public double[] getPoint(String word) {
-
         EmbeddingSpace pcaSpace = provider.getSpace(SpaceId.PCA);
-        Embedding e = pcaSpace.get(word);
-
-        if (e == null)
+        Embedding embedding = pcaSpace.get(word);
+        if (embedding == null) {
             throw new UnknownWordException(word);
+        }
+        Vector v = embedding.getVector();
 
-        Vector v = e.getVector();
+        int xIndex = axes.getXIndex();
+        int yIndex = axes.getYIndex();
 
-        double x = v.get(axes.getXIndex());
-        double y = v.get(axes.getYIndex());
+        double x = v.get(xIndex);
+        double y = v.get(yIndex);
 
         if (!axes.is3D()) {
             return new double[]{x, y};
         }
 
-        double z = v.get(axes.getZIndex());
+        int zIndex = axes.getZIndex();
+        double z = v.get(zIndex);
+
         return new double[]{x, y, z};
     }
 
@@ -67,16 +105,19 @@ public class AppController {
 
         EmbeddingSpace pcaSpace = provider.getSpace(SpaceId.PCA);
 
-        List<PlotPoint> points = new java.util.ArrayList<>(pcaSpace.size());
+        List<PlotPoint> points = new ArrayList<>(pcaSpace.size());
 
-        for (Embedding e : pcaSpace.getAll()) {
+        for (Embedding embedding : pcaSpace.getAll()) {
 
-            Vector v = e.getVector();
+            Vector v = embedding.getVector();
 
-            double x = v.get(axes.getXIndex());
-            double y = v.get(axes.getYIndex());
+            int xIndex = axes.getXIndex();
+            int yIndex = axes.getYIndex();
 
-            points.add(new PlotPoint(e.getKey(), x, y));
+            double x = v.get(xIndex);
+            double y = v.get(yIndex);
+
+            points.add(new PlotPoint(embedding.getKey(), x, y));
         }
 
         return points;
@@ -86,73 +127,61 @@ public class AppController {
 
         EmbeddingSpace pcaSpace = provider.getSpace(SpaceId.PCA);
 
-        List<PlotPoint> points = new java.util.ArrayList<>(pcaSpace.size());
+        List<PlotPoint> points = new ArrayList<>(pcaSpace.size());
 
-        for (Embedding e : pcaSpace.getAll()) {
+        for (Embedding embedding : pcaSpace.getAll()) {
 
-            Vector v = e.getVector();
+            Vector v = embedding.getVector();
 
-            double x = v.get(axes.getXIndex());
-            double y = v.get(axes.getYIndex());
-            double z = v.get(axes.getZIndex());
+            int xIndex = axes.getXIndex();
+            int yIndex = axes.getYIndex();
+            int zIndex = axes.getZIndex();
 
-            points.add(new PlotPoint(e.getKey(), x, y, z));
+            double x = v.get(xIndex);
+            double y = v.get(yIndex);
+            double z = v.get(zIndex);
+
+            points.add(new PlotPoint(embedding.getKey(), x, y, z));
         }
 
         return points;
     }
 
-
     public int getPcaDimension() {
-        return provider.getSpace(SpaceId.PCA).dimension();
+        EmbeddingSpace pcaSpace = provider.getSpace(SpaceId.PCA);
+        return pcaSpace.dimension();
     }
 
-    public CustomProjectionResult customProjection(String a, String b, int k) {
-        CustomProjectionOperation op =
-                new CustomProjectionOperation(provider, SpaceId.FULL, a, b, k);
-
-        return (CustomProjectionResult) op.execute();
-    }
-    public List<Neighbor> vectorArithmetic(VectorExpression expr, int k) {
-        VectorArithmeticOperation op = new VectorArithmeticOperation(provider, SpaceId.FULL, expr, k);
-        VectorArithmeticResult result = (VectorArithmeticResult) op.execute();
-        return result.getTopK();
-    }
+    // =========================
+    // Direct distance query
+    // =========================
 
     public double distanceBetween(String word1, String word2) {
 
-        if (word1 == null || word1.isBlank() ||
-                word2 == null || word2.isBlank()) {
+        boolean invalidWord1 = (word1 == null || word1.isBlank());
+        boolean invalidWord2 = (word2 == null || word2.isBlank());
+
+        if (invalidWord1 || invalidWord2) {
             throw new IllegalArgumentException("Words cannot be empty");
         }
 
         EmbeddingSpace space = provider.getSpace(SpaceId.FULL);
 
         Embedding e1 = space.get(word1);
-        Embedding e2 = space.get(word2);
+        if (e1 == null) {
+            throw new UnknownWordException(word1);
+        }
 
-        if (e1 == null) throw new UnknownWordException(word1);
-        if (e2 == null) throw new UnknownWordException(word2);
+        Embedding e2 = space.get(word2);
+        if (e2 == null) {
+            throw new UnknownWordException(word2);
+        }
 
         DistanceStrategy strategy = provider.getDistanceStrategy();
 
-        return strategy.compute(e1.getVector(), e2.getVector());
+        Vector v1 = e1.getVector();
+        Vector v2 = e2.getVector();
+
+        return strategy.compute(v1, v2);
     }
-
-    public List<Neighbor> subspaceGrouping(List<String> keys, int k) {
-
-        SubspaceGroupingOperation op =
-                new SubspaceGroupingOperation(provider, SpaceId.FULL, keys, k);
-
-        SubspaceGroupingResult result =
-                (SubspaceGroupingResult) op.execute();
-
-        return result.getNeighbors();
-    }
-
-
-
-
-
-
 }

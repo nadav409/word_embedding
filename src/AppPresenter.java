@@ -12,47 +12,75 @@ public class AppPresenter {
         this.controller = controller;
         this.uiState = uiState;
 
+        // Initialize UI with the controller's current metric
         DistanceStrategy initialMetric = controller.getDistanceStrategy();
         uiState.setMetric(initialMetric);
     }
 
-    // -------- Events coming from UI --------
+    // =========================
+    // Events coming from UI
+    // =========================
 
     public void onItemSelected(String key) {
-        if (key == null || key.isBlank()) return;
+        if (key == null || key.isBlank()) {
+            return;
+        }
 
+        // Clear previous error and update status
         uiState.setError("");
         uiState.setStatus("Selected: " + key);
 
+        // Save selection in state
         uiState.setSelectedKey(key);
 
-        // reset old results until user runs operation
+        // Reset old results until user runs an operation
         uiState.setPrimaryResults(List.of());
         uiState.setHighlightedKeys(Set.of());
     }
 
-    private void applyMetric(DistanceStrategy strategy) {
-        if (strategy == null) return;
+    public void onOperationSelected(OperationType op) {
+        uiState.setSelectedOperation(op);
+    }
 
+    // =========================
+    // Metric selection
+    // =========================
+
+    public void onMetricSelected(MetricType type) {
+        if (type == null) {
+            return;
+        }
+
+        DistanceStrategy strategy;
+        if (type == MetricType.COSINE) {
+            strategy = new CosineDistance();
+        } else {
+            strategy = new EuclideanDistance();
+        }
+
+        applyMetric(strategy);
+    }
+
+    private void applyMetric(DistanceStrategy strategy) {
+        if (strategy == null) {
+            return;
+        }
+
+        // Update controller (source of truth for metric)
         controller.setDistanceStrategy(strategy);
 
+        // Update UI state
         uiState.setError("");
         uiState.setMetric(strategy);
         uiState.setStatus("Metric: " + strategy.getClass().getSimpleName());
     }
 
-    public void onMetricSelected(MetricType type) {
-        if (type == null) return;
-
-        DistanceStrategy strategy =
-                (type == MetricType.COSINE)
-                        ? new CosineDistance()
-                        : new EuclideanDistance();
-
-        applyMetric(strategy);
-    }
+    // =========================
+    // Neighbors
+    // =========================
 
     public void onFindNeighborsRequested(int k) {
+
         String selected = uiState.getSelectedKey();
         if (selected == null || selected.isBlank()) {
             uiState.setError("No item selected");
@@ -60,7 +88,9 @@ public class AppPresenter {
             return;
         }
 
-        if (k < 1) k = 1;
+        if (k < 1) {
+            k = 1;
+        }
 
         try {
             uiState.setError("");
@@ -70,10 +100,13 @@ public class AppPresenter {
 
             uiState.setPrimaryResults(neighbors);
 
+            // Build highlight set from results (excluding the selected word)
             LinkedHashSet<String> highlights = new LinkedHashSet<>();
             for (Neighbor n : neighbors) {
                 String nk = n.getKey();
-                if (nk != null && !nk.equals(selected)) highlights.add(nk);
+                if (nk != null && !nk.isBlank() && !nk.equals(selected)) {
+                    highlights.add(nk);
+                }
             }
             uiState.setHighlightedKeys(highlights);
 
@@ -86,48 +119,59 @@ public class AppPresenter {
         }
     }
 
-    public void onOperationSelected(OperationType op) {
-        uiState.setSelectedOperation(op);
-    }
+    // =========================
+    // Vector arithmetic
+    // =========================
 
-    // ✅ UPDATED: now receives K from VectorArithmeticPane
     public void onVectorResultRequested(VectorExpression expr, int k) {
-        if (expr == null || expr.isEmpty()) return;
-        if (k < 1) k = 1;
+        if (expr == null || expr.isEmpty()) {
+            return;
+        }
+        if (k < 1) {
+            k = 1;
+        }
 
         uiState.setError("");
         uiState.setStatus("Computing vector expression...");
 
         try {
-            // metric already controlled by onMetricSelected → controller.setDistanceStrategy(...)
+            // Metric is already controlled by onMetricSelected -> controller.setDistanceStrategy(...)
             List<Neighbor> neighbors = controller.vectorArithmetic(expr, k);
 
             uiState.setPrimaryResults(neighbors);
 
-            uiState.setHighlightedKeys(
-                    neighbors.stream()
-                            .map(Neighbor::getKey)
-                            .filter(s -> s != null && !s.isBlank())
-                            .collect(java.util.stream.Collectors.toSet())
-            );
+            Set<String> highlights = new HashSet<>();
+            for (Neighbor n : neighbors) {
+                String key = n.getKey();
+                if (key != null && !key.isBlank()) {
+                    highlights.add(key);
+                }
+            }
+            uiState.setHighlightedKeys(highlights);
 
             uiState.setStatus("Done");
 
         } catch (UnknownWordException ex) {
-            uiState.setPrimaryResults(List.of());
-            uiState.setHighlightedKeys(Set.of());
-            uiState.setStatus("");
+            clearResults();
             uiState.setError("Unknown word: " + ex.getMessage());
+
         } catch (Exception ex) {
-            uiState.setPrimaryResults(List.of());
-            uiState.setHighlightedKeys(Set.of());
-            uiState.setStatus("");
+            clearResults();
             uiState.setError("Error: " + ex.getMessage());
         }
     }
+
+    // =========================
+    // Custom projection
+    // =========================
+
     public void onProjectionRequested(String a, String b, int k) {
-        if (a == null || a.isBlank() || b == null || b.isBlank()) return;
-        if (k < 1) k = 1;
+        if (a == null || a.isBlank() || b == null || b.isBlank()) {
+            return;
+        }
+        if (k < 1) {
+            k = 1;
+        }
 
         uiState.setError("");
         uiState.setStatus("Projecting...");
@@ -135,14 +179,16 @@ public class AppPresenter {
         try {
             CustomProjectionResult res = controller.customProjection(a, b, k);
 
-            // ✅ זה ה-OOP הנכון: Presenter מעדכן state
+            // Presenter updates state; UI listens and renders
             uiState.setProjectionResult(res);
 
             uiState.setStatus("Done");
+
         } catch (UnknownWordException ex) {
             uiState.setProjectionResult(null);
             uiState.setStatus("");
             uiState.setError("Unknown word: " + ex.getMessage());
+
         } catch (Exception ex) {
             uiState.setProjectionResult(null);
             uiState.setStatus("");
@@ -150,9 +196,13 @@ public class AppPresenter {
         }
     }
 
+    // =========================
+    // Distance between two words
+    // =========================
+
     public void onDistanceRequested(String a, String b) {
 
-        if (a == null || b == null || a.isBlank() || b.isBlank()) {
+        if (a == null || a.isBlank() || b == null || b.isBlank()) {
             uiState.setError("Select two items");
             return;
         }
@@ -162,10 +212,10 @@ public class AppPresenter {
 
             double dist = controller.distanceBetween(a, b);
 
-            uiState.setStatus("Distance = " +
-                    String.format(java.util.Locale.ROOT, "%.6f", dist));
+            String msg = "Distance = " + String.format(java.util.Locale.ROOT, "%.6f", dist);
+            uiState.setStatus(msg);
 
-            // 🔥 כאן הקסם
+            // Highlight both words
             uiState.setHighlightedKeys(Set.of(a, b));
 
         } catch (Exception ex) {
@@ -173,6 +223,10 @@ public class AppPresenter {
             uiState.setHighlightedKeys(Set.of());
         }
     }
+
+    // =========================
+    // Grouping / centroid neighbors
+    // =========================
 
     public void onGroupingRequested(List<String> keys, int k) {
 
@@ -185,12 +239,11 @@ public class AppPresenter {
             uiState.setError("");
             uiState.setStatus("Computing centroid...");
 
-            // 🟢 קודם כל – נצבע את הקבוצה
+            // First: highlight the selected group
             uiState.setHighlightedKeys(new HashSet<>(keys));
 
-            // 🟠 עכשיו נחשב את הקרובים למרכז
-            List<Neighbor> neighbors =
-                    controller.subspaceGrouping(keys, k);
+            // Then: compute neighbors around the centroid
+            List<Neighbor> neighbors = controller.subspaceGrouping(keys, k);
 
             uiState.setPrimaryResults(neighbors);
 
@@ -202,8 +255,13 @@ public class AppPresenter {
         }
     }
 
+    // =========================
+    // Helpers
+    // =========================
 
-
-
-
+    private void clearResults() {
+        uiState.setPrimaryResults(List.of());
+        uiState.setHighlightedKeys(Set.of());
+        uiState.setStatus("");
+    }
 }
