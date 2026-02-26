@@ -189,6 +189,7 @@ public class FxApp extends Application {
 
         Scene scene = new Scene(root, 1250, 760);
 
+
         scene.getStylesheets().add(
                 getClass().getResource("dark-theme.css").toExternalForm()
         );

@@ -1,4 +1,5 @@
 import javafx.scene.layout.StackPane;
+import javafx.scene.shape.Rectangle;
 
 import java.util.HashSet;
 import java.util.List;
@@ -21,6 +22,13 @@ public class PlotPane extends StackPane implements UiStateListener {
     public PlotPane(PlotView view2D, PlotView view3D) {
         this.view2D = view2D;
         this.view3D = view3D;
+
+        Rectangle clip = new Rectangle();
+        clip.widthProperty().bind(widthProperty());
+        clip.heightProperty().bind(heightProperty());
+        setClip(clip);
+
+        setPickOnBounds(true);
 
         setMode(false); // default 2D
     }

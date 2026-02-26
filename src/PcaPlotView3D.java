@@ -39,9 +39,10 @@ public class PcaPlotView3D extends Pane implements PlotView {
 
     public PcaPlotView3D() {
 
-        setPrefSize(900, 700);
+        
 
         subScene = new SubScene(world, 900, 700, true, SceneAntialiasing.BALANCED);
+        subScene.setPickOnBounds(true);
         subScene.setFill(Color.rgb(5, 8, 20));
         subScene.widthProperty().bind(widthProperty());
         subScene.heightProperty().bind(heightProperty());
@@ -71,6 +72,7 @@ public class PcaPlotView3D extends Pane implements PlotView {
         overlay.getChildren().add(hoverTooltip);
 
         getChildren().addAll(subScene, overlay);
+        subScene.setFocusTraversable(false);
 
         enableMouseControl();
     }
@@ -130,6 +132,8 @@ public class PcaPlotView3D extends Pane implements PlotView {
                     isSelected ? 6 :
                             isHighlighted || isGroup ? 5 : 3
             );
+
+            sphere.setPickOnBounds(false);
 
             PhongMaterial material = new PhongMaterial();
 
@@ -281,6 +285,10 @@ public class PcaPlotView3D extends Pane implements PlotView {
         subScene.setOnScroll(event -> {
             camTranslate.setZ(camTranslate.getZ() + event.getDeltaY() * 3.0);
             updateAllTagPositions();
+        });
+
+        subScene.setOnMouseReleased(e -> {
+            PcaPlotView3D.this.requestFocus();
         });
     }
 }

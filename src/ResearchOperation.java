@@ -1,8 +1,7 @@
-import java.util.Objects;
-
 /**
  * Base class for all research operations.
- * Holds the Provider and chooses which EmbeddingSpace to run on.
+ * Each operation asks the Provider for an EmbeddingSpace
+ * and performs a calculation on it.
  */
 public abstract class ResearchOperation {
 
@@ -13,38 +12,53 @@ public abstract class ResearchOperation {
         if (provider == null) {
             throw new IllegalArgumentException("provider cannot be null");
         }
+
         if (spaceId == null) {
             throw new IllegalArgumentException("spaceId cannot be null");
         }
+
         this.provider = provider;
         this.spaceId = spaceId;
     }
 
     /**
-     * Template method: fetch the requested space and run the concrete operation.
+     * Main entry point of every operation.
+     * 1) Ask the Provider for the requested space
+     * 2) Run the specific operation logic
      */
     public final OperationResult execute() {
+
+        // Step 1: get the embedding space from the provider
         EmbeddingSpace space = provider.getSpace(spaceId);
+
         if (space == null) {
-            // normally provider should never return null, but keep it safe
-            throw new IllegalStateException("space is null for id: " + spaceId);
+            // Provider is not expected to return null, but we guard anyway
+            throw new IllegalStateException("No space found for id: " + spaceId);
         }
-        return run(space);
+
+        // Step 2: perform the actual operation (implemented by subclasses)
+        OperationResult result = run(space);
+
+        return result;
     }
 
     /**
-     * Concrete operations implement their logic here.
+     * Each concrete operation implements its calculation here.
      */
     protected abstract OperationResult run(EmbeddingSpace space);
 
     /**
-     * The current metric/distance strategy to use (comes from Provider).
+     * Returns the distance strategy currently selected in the Provider.
+     * (Cosine distance / Euclidean distance)
      */
     protected final DistanceStrategy metric() {
-        DistanceStrategy s = provider.getDistanceStrategy();
-        if (s == null) {
-            throw new IllegalStateException("provider returned null DistanceStrategy");
+
+        DistanceStrategy strategy = provider.getDistanceStrategy();
+
+        if (strategy == null) {
+            throw new IllegalStateException("Provider returned null DistanceStrategy");
         }
-        return s;
+
+        return strategy;
     }
 }
