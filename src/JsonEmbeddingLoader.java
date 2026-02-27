@@ -14,30 +14,47 @@ public class JsonEmbeddingLoader extends FileEmbeddingLoader {
 
     @Override
     public List<RawEmbedding> load() throws IOException {
+        try (Reader reader = Files.newBufferedReader(path)) {
+            JsonArray array = readJsonArray(reader);
+            return parseEmbeddings(array);
+        }
+    }
 
+    private JsonArray readJsonArray(Reader reader) {
+        JsonElement root = JsonParser.parseReader(reader);
+        return root.getAsJsonArray();
+    }
+
+    private List<RawEmbedding> parseEmbeddings(JsonArray array) {
         List<RawEmbedding> result = new ArrayList<>();
 
-        try (Reader reader = Files.newBufferedReader(path)) {
-
-            JsonArray array = JsonParser.parseReader(reader).getAsJsonArray();
-
-            for (JsonElement element : array) {
-                JsonObject obj = element.getAsJsonObject();
-
-                String key = obj.get("word").getAsString();
-
-                JsonArray vecArray = obj.getAsJsonArray("vector");
-                double[] values = new double[vecArray.size()];
-
-                for (int i = 0; i < vecArray.size(); i++) {
-                    values[i] = vecArray.get(i).getAsDouble();
-                }
-
-                result.add(new RawEmbedding(key, values));
-            }
+        for (JsonElement element : array) {
+            JsonObject obj = element.getAsJsonObject();
+            RawEmbedding embedding = parseSingleEmbedding(obj);
+            result.add(embedding);
         }
 
         return result;
     }
-}
 
+    private RawEmbedding parseSingleEmbedding(JsonObject obj) {
+        String word = readWord(obj);
+        double[] vector = readVector(obj);
+        return new RawEmbedding(word, vector);
+    }
+
+    private String readWord(JsonObject obj) {
+        return obj.get("word").getAsString();
+    }
+
+    private double[] readVector(JsonObject obj) {
+        JsonArray vecArray = obj.getAsJsonArray("vector");
+        double[] values = new double[vecArray.size()];
+
+        for (int i = 0; i < vecArray.size(); i++) {
+            values[i] = vecArray.get(i).getAsDouble();
+        }
+
+        return values;
+    }
+}

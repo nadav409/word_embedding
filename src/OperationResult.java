@@ -1,6 +1,6 @@
 public abstract class OperationResult {
 
-    private OperationType type;
+    private final OperationType type;
 
     protected OperationResult(OperationType type) {
         if (type == null) {

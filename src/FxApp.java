@@ -127,8 +127,6 @@ public class FxApp extends Application {
         zBox = new ComboBox<>();
         threeDCheck = new CheckBox("3D");
 
-        Button redrawBtn = new Button("Redraw");
-
         int dim = controller.getPcaDimension();
 
         for (int i = 0; i < dim; i++) {
@@ -143,7 +141,6 @@ public class FxApp extends Application {
 
         zBox.setDisable(true);
 
-        redrawBtn.setOnAction(e -> redraw());
         xBox.setOnAction(e -> redraw());
         yBox.setOnAction(e -> redraw());
         zBox.setOnAction(e -> redraw());
@@ -154,13 +151,7 @@ public class FxApp extends Application {
             redraw();
         });
 
-        HBox top = new HBox(10,
-                new Label("X:"), xBox,
-                new Label("Y:"), yBox,
-                new Label("Z:"), zBox,
-                threeDCheck,
-                redrawBtn
-        );
+        HBox top = new HBox(10, new Label("X:"), xBox, new Label("Y:"), yBox, new Label("Z:"), zBox, threeDCheck);
 
         top.setPadding(new Insets(10));
 

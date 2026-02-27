@@ -9,145 +9,83 @@ public class AppPresenter {
     private final UiState uiState;
 
     public AppPresenter(AppController controller, UiState uiState) {
+        if (controller == null || uiState == null) {
+            throw new IllegalArgumentException("controller/uiState cannot be null");
+        }
+
         this.controller = controller;
         this.uiState = uiState;
 
-        // Initialize UI with the controller's current metric
-        DistanceStrategy initialMetric = controller.getDistanceStrategy();
-        uiState.setMetric(initialMetric);
+        uiState.setMetric(controller.getDistanceStrategy());
     }
 
-    // =========================
-    // Events coming from UI
-    // =========================
-
     public void onItemSelected(String key) {
-        if (key == null || key.isBlank()) {
-            return;
-        }
+        if (isBlank(key)) return;
 
-        // Clear previous error and update status
         uiState.setError("");
         uiState.setStatus("Selected: " + key);
-
-        // Save selection in state
         uiState.setSelectedKey(key);
 
-        // Reset old results until user runs an operation
-        uiState.setPrimaryResults(List.of());
-        uiState.setHighlightedKeys(Set.of());
+        clearResults();
     }
 
     public void onOperationSelected(OperationType op) {
+        if (op == null) return;
         uiState.setSelectedOperation(op);
     }
 
-    // =========================
-    // Metric selection
-    // =========================
-
     public void onMetricSelected(MetricType type) {
-        if (type == null) {
-            return;
-        }
+        if (type == null) return;
 
-        DistanceStrategy strategy;
-        if (type == MetricType.COSINE) {
-            strategy = new CosineDistance();
-        } else {
-            strategy = new EuclideanDistance();
-        }
+        DistanceStrategy strategy =
+                (type == MetricType.COSINE) ? new CosineDistance() : new EuclideanDistance();
 
-        applyMetric(strategy);
-    }
-
-    private void applyMetric(DistanceStrategy strategy) {
-        if (strategy == null) {
-            return;
-        }
-
-        // Update controller (source of truth for metric)
         controller.setDistanceStrategy(strategy);
 
-        // Update UI state
         uiState.setError("");
         uiState.setMetric(strategy);
         uiState.setStatus("Metric: " + strategy.getClass().getSimpleName());
     }
 
-    // =========================
-    // Neighbors
-    // =========================
-
     public void onFindNeighborsRequested(int k) {
-
         String selected = uiState.getSelectedKey();
-        if (selected == null || selected.isBlank()) {
+        if (isBlank(selected)) {
             uiState.setError("No item selected");
             uiState.setStatus("Select an item first");
             return;
         }
 
-        if (k < 1) {
-            k = 1;
-        }
+        k = normalizeK(k);
 
         try {
             uiState.setError("");
             uiState.setStatus("Searching neighbors…");
 
             List<Neighbor> neighbors = controller.nearestNeighbors(selected, k);
-
             uiState.setPrimaryResults(neighbors);
-
-            // Build highlight set from results (excluding the selected word)
-            LinkedHashSet<String> highlights = new LinkedHashSet<>();
-            for (Neighbor n : neighbors) {
-                String nk = n.getKey();
-                if (nk != null && !nk.isBlank() && !nk.equals(selected)) {
-                    highlights.add(nk);
-                }
-            }
-            uiState.setHighlightedKeys(highlights);
+            uiState.setHighlightedKeys(buildHighlightsFromNeighbors(neighbors, Set.of(selected)));
 
             uiState.setStatus("Found " + neighbors.size() + " neighbors");
 
         } catch (Exception ex) {
             uiState.setError("ERROR: " + ex.getMessage());
             uiState.setStatus("Failed");
-            ex.printStackTrace();
         }
     }
 
-    // =========================
-    // Vector arithmetic
-    // =========================
-
     public void onVectorResultRequested(VectorExpression expr, int k) {
-        if (expr == null || expr.isEmpty()) {
-            return;
-        }
-        if (k < 1) {
-            k = 1;
-        }
+        if (expr == null || expr.isEmpty()) return;
+
+        k = normalizeK(k);
 
         uiState.setError("");
         uiState.setStatus("Computing vector expression...");
 
         try {
-            // Metric is already controlled by onMetricSelected -> controller.setDistanceStrategy(...)
             List<Neighbor> neighbors = controller.vectorArithmetic(expr, k);
 
             uiState.setPrimaryResults(neighbors);
-
-            Set<String> highlights = new HashSet<>();
-            for (Neighbor n : neighbors) {
-                String key = n.getKey();
-                if (key != null && !key.isBlank()) {
-                    highlights.add(key);
-                }
-            }
-            uiState.setHighlightedKeys(highlights);
+            uiState.setHighlightedKeys(buildHighlightsFromNeighbors(neighbors, Set.of()));
 
             uiState.setStatus("Done");
 
@@ -161,27 +99,17 @@ public class AppPresenter {
         }
     }
 
-    // =========================
-    // Custom projection
-    // =========================
-
     public void onProjectionRequested(String a, String b, int k) {
-        if (a == null || a.isBlank() || b == null || b.isBlank()) {
-            return;
-        }
-        if (k < 1) {
-            k = 1;
-        }
+        if (isBlank(a) || isBlank(b)) return;
+
+        k = normalizeK(k);
 
         uiState.setError("");
         uiState.setStatus("Projecting...");
 
         try {
             CustomProjectionResult res = controller.customProjection(a, b, k);
-
-            // Presenter updates state; UI listens and renders
             uiState.setProjectionResult(res);
-
             uiState.setStatus("Done");
 
         } catch (UnknownWordException ex) {
@@ -196,13 +124,8 @@ public class AppPresenter {
         }
     }
 
-    // =========================
-    // Distance between two words
-    // =========================
-
     public void onDistanceRequested(String a, String b) {
-
-        if (a == null || a.isBlank() || b == null || b.isBlank()) {
+        if (isBlank(a) || isBlank(b)) {
             uiState.setError("Select two items");
             return;
         }
@@ -211,11 +134,9 @@ public class AppPresenter {
             uiState.setError("");
 
             double dist = controller.distanceBetween(a, b);
-
             String msg = "Distance = " + String.format(java.util.Locale.ROOT, "%.6f", dist);
-            uiState.setStatus(msg);
 
-            // Highlight both words
+            uiState.setStatus(msg);
             uiState.setHighlightedKeys(Set.of(a, b));
 
         } catch (Exception ex) {
@@ -224,27 +145,21 @@ public class AppPresenter {
         }
     }
 
-    // =========================
-    // Grouping / centroid neighbors
-    // =========================
-
     public void onGroupingRequested(List<String> keys, int k) {
-
         if (keys == null || keys.size() < 2) {
             uiState.setError("Select at least 2 items");
             return;
         }
 
+        k = normalizeK(k);
+
         try {
             uiState.setError("");
             uiState.setStatus("Computing centroid...");
 
-            // First: highlight the selected group
             uiState.setHighlightedKeys(new HashSet<>(keys));
 
-            // Then: compute neighbors around the centroid
             List<Neighbor> neighbors = controller.subspaceGrouping(keys, k);
-
             uiState.setPrimaryResults(neighbors);
 
             uiState.setStatus("Done");
@@ -255,13 +170,31 @@ public class AppPresenter {
         }
     }
 
-    // =========================
-    // Helpers
-    // =========================
-
     private void clearResults() {
         uiState.setPrimaryResults(List.of());
         uiState.setHighlightedKeys(Set.of());
         uiState.setStatus("");
+    }
+
+    private static int normalizeK(int k) {
+        return (k < 1) ? 1 : k;
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.isBlank();
+    }
+
+    private static Set<String> buildHighlightsFromNeighbors(List<Neighbor> neighbors, Set<String> excluded) {
+        LinkedHashSet<String> out = new LinkedHashSet<>();
+        if (neighbors == null) return out;
+
+        for (Neighbor n : neighbors) {
+            if (n == null) continue;
+            String key = n.getKey();
+            if (key == null || key.isBlank()) continue;
+            if (excluded != null && excluded.contains(key)) continue;
+            out.add(key);
+        }
+        return out;
     }
 }

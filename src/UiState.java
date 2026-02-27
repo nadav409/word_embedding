@@ -4,15 +4,12 @@ public class UiState {
 
     private final List<UiStateListener> listeners = new ArrayList<>();
 
-    // ===== Operation =====
     private OperationType selectedOperation = OperationType.NEIGHBORS;
     private CustomProjectionResult projectionResult;
 
-    // ===== Selection / Metric =====
     private String selectedKey;
     private DistanceStrategy metric = new CosineDistance();
 
-    // ===== Results / Highlights =====
     private List<Neighbor> primaryResults = List.of();
     private Set<String> highlightedKeys = Set.of();
 
