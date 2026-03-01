@@ -10,15 +10,19 @@ public class VectorArithmeticOperation extends ResearchOperation {
     public VectorArithmeticOperation(Provider provider, SpaceId spaceId, VectorExpression expression, int k) {
         super(provider, spaceId);
 
-        if (expression == null) throw new IllegalArgumentException("expression cannot be null");
-        if (expression.isEmpty()) throw new IllegalArgumentException("expression cannot be empty");
-        if (k <= 0) throw new IllegalArgumentException("k must be positive");
+        if (expression == null)
+            throw new IllegalArgumentException("expression cannot be null");
+
+        if (expression.isEmpty())
+            throw new IllegalArgumentException("expression cannot be empty");
+
+        if (k <= 0)
+            throw new IllegalArgumentException("k must be positive");
 
         this.expression = expression;
         this.k = k;
     }
 
-    // ברירת מחדל: Top 5
     public VectorArithmeticOperation(Provider provider, SpaceId spaceId, VectorExpression expression) {
         this(provider, spaceId, expression, 5);
     }
@@ -37,43 +41,61 @@ public class VectorArithmeticOperation extends ResearchOperation {
         Vector result = null;
         Set<String> excluded = new HashSet<>();
 
+        // 1. חישוב הוקטור הסופי של הביטוי
         for (ExpressionStep step : expression.getSteps()) {
 
             String key = step.getKey();
             excluded.add(key);
 
             Embedding e = space.get(key);
-            if (e == null) throw new UnknownWordException(key);
+            if (e == null)
+                throw new UnknownWordException(key);
 
             Vector signed = e.getVector().scale(step.getOp().sign());
 
-            result = (result == null) ? signed : result.add(signed);
+            if (result == null) {
+                result = signed;
+            } else {
+                result = result.add(signed);
+            }
         }
 
-        List<Neighbor> top = NeighborFinder.findNearestByVector(space, result, k, excluded, metric());
+        // 2. מציאת הקרובים לוקטור החדש
+        List<Neighbor> top = space.findNearest(
+                result,
+                k,
+                excluded,
+                metric()
+        );
 
-
-        // אופציונלי: תיאור קצר בשביל UI/debug
+        // 3. תיאור לביטוי (לא חובה, רק UI)
         String preview = buildPreview();
 
         return new VectorArithmeticResult(preview, k, top);
     }
 
     private String buildPreview() {
-        // רק תיאור, לא חובה
+
         StringBuilder sb = new StringBuilder();
         boolean first = true;
+
         for (ExpressionStep s : expression.getSteps()) {
+
             if (first) {
-                // מילה ראשונה: נציג בלי +
-                if (s.getOp() == CombineOp.MINUS) sb.append("-");
+                if (s.getOp() == CombineOp.MINUS)
+                    sb.append("-");
                 sb.append(s.getKey());
                 first = false;
             } else {
-                sb.append(s.getOp() == CombineOp.PLUS ? " + " : " - ");
+                if (s.getOp() == CombineOp.PLUS)
+                    sb.append(" + ");
+                else
+                    sb.append(" - ");
+
                 sb.append(s.getKey());
             }
         }
+
         return sb.toString();
     }
 }
