@@ -1,23 +1,24 @@
-public class DistanceResult extends OperationResult {
+public class DistanceResult implements OperationResult {
 
-    private final String keyA;
-    private final String keyB;
-    private final double distance;
+    private String keyA;
+    private String keyB;
+    private double distance;
 
     public DistanceResult(String keyA, String keyB, double distance) {
-        super(OperationType.DISTANCE);
         this.keyA = keyA;
         this.keyB = keyB;
         this.distance = distance;
     }
 
+    public String getKeyA() {
+        return keyA;
+    }
+
+    public String getKeyB() {
+        return keyB;
+    }
+
     public double getDistance() {
         return distance;
     }
-
-    @Override
-    public String toString() {
-        return "Distance between '" + keyA + "' and '" + keyB + "' = " + distance;
-    }
 }
-

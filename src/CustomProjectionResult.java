@@ -1,26 +1,31 @@
-import java.util.Collections;
 import java.util.List;
 
-public class CustomProjectionResult extends OperationResult {
+public class CustomProjectionResult implements OperationResult {
 
-    private final String a;
-    private final String b;
-    private final int k;
-    private final List<CustomProjectionItem> topA;
-    private final List<CustomProjectionItem> topB;
+    private String a;
+    private String b;
+    private int k;
 
-    public CustomProjectionResult(String a, String b, int k,
-                                  List<CustomProjectionItem> topA,
-                                  List<CustomProjectionItem> topB) {
+    private List<CustomProjectionItem> topA;
+    private List<CustomProjectionItem> topB;
 
-        super(OperationType.PROJECTION);
+    public CustomProjectionResult(String a, String b, int k, List<CustomProjectionItem> topA, List<CustomProjectionItem> topB) {
 
         this.a = a;
         this.b = b;
         this.k = k;
 
-        this.topA = (topA == null) ? List.of() : Collections.unmodifiableList(topA);
-        this.topB = (topB == null) ? List.of() : Collections.unmodifiableList(topB);
+        if (topA == null) {
+            this.topA = List.of();
+        } else {
+            this.topA = topA;
+        }
+
+        if (topB == null) {
+            this.topB = List.of();
+        } else {
+            this.topB = topB;
+        }
     }
 
     public String getA() {
@@ -41,32 +46,5 @@ public class CustomProjectionResult extends OperationResult {
 
     public List<CustomProjectionItem> getTopB() {
         return topB;
-    }
-
-    @Override
-    public String toString() {
-
-        StringBuilder sb = new StringBuilder();
-
-        sb.append("Operation: CUSTOM PROJECTION\n");
-        sb.append("Axis: ").append(a).append(" -> ").append(b).append("\n");
-
-        sb.append("\nMost ").append(a).append("-like:\n");
-        for (CustomProjectionItem item : topA) {
-            sb.append(item.getKey())
-                    .append(" | ")
-                    .append(String.format("%.6f", item.getScore()))
-                    .append("\n");
-        }
-
-        sb.append("\nMost ").append(b).append("-like:\n");
-        for (CustomProjectionItem item : topB) {
-            sb.append(item.getKey())
-                    .append(" | ")
-                    .append(String.format("%.6f", item.getScore()))
-                    .append("\n");
-        }
-
-        return sb.toString();
     }
 }

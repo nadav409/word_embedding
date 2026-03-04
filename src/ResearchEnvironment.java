@@ -1,52 +1,30 @@
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
 public class ResearchEnvironment implements Provider {
 
-    private final Map<SpaceId, EmbeddingSpace> spaces;
+    private Map<SpaceId, EmbeddingSpace> spaces;
     private DistanceStrategy distanceStrategy;
 
-    public ResearchEnvironment(Map<SpaceId, EmbeddingSpace> spaces, DistanceStrategy defaultStrategy) {
+    public ResearchEnvironment(Map<SpaceId, EmbeddingSpace> spaces, DistanceStrategy strategy) {
 
-        if (spaces == null) {
-            throw new IllegalArgumentException("spaces cannot be null");
+        if (spaces == null || spaces.isEmpty()) {
+            throw new IllegalArgumentException("spaces cannot be null or empty");
         }
 
-        if (spaces.isEmpty()) {
-            throw new IllegalArgumentException("spaces cannot be empty");
+        if (strategy == null) {
+            throw new IllegalArgumentException("distance strategy cannot be null");
         }
 
-        if (defaultStrategy == null) {
-            throw new IllegalArgumentException("defaultStrategy cannot be null");
-        }
+        this.spaces = new HashMap<>(spaces);
 
-        this.spaces = new HashMap<>();
-
-        for (Map.Entry<SpaceId, EmbeddingSpace> entry : spaces.entrySet()) {
-            SpaceId id = entry.getKey();
-            EmbeddingSpace space = entry.getValue();
-
-            if (id == null) {
-                throw new IllegalArgumentException("space id cannot be null");
-            }
-
-            if (space == null) {
-                throw new IllegalArgumentException("embedding space cannot be null");
-            }
-
-            this.spaces.put(id, space);
-        }
-
-        // require FULL space
         if (!this.spaces.containsKey(SpaceId.FULL)) {
-            throw new IllegalArgumentException("FULL space is required");
+            throw new IllegalArgumentException("FULL space must exist");
         }
 
-        this.distanceStrategy = defaultStrategy;
+        this.distanceStrategy = strategy;
     }
 
-    @Override
     public EmbeddingSpace getSpace(SpaceId id) {
 
         if (id == null) {
@@ -62,29 +40,17 @@ public class ResearchEnvironment implements Provider {
         return space;
     }
 
-    @Override
     public DistanceStrategy getDistanceStrategy() {
         return distanceStrategy;
     }
 
-    @Override
     public void setDistanceStrategy(DistanceStrategy strategy) {
 
         if (strategy == null) {
             throw new IllegalArgumentException("strategy cannot be null");
         }
 
-        this.distanceStrategy = strategy;
+        distanceStrategy = strategy;
     }
 
-    public boolean hasSpace(SpaceId id) {
-        if (id == null) {
-            return false;
-        }
-        return spaces.containsKey(id);
-    }
-
-    public Collection<SpaceId> availableSpaces() {
-        return spaces.keySet();
-    }
 }

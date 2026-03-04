@@ -64,7 +64,7 @@ public class AppController {
     public List<Neighbor> vectorArithmetic(VectorExpression expr, int k) {
         VectorArithmeticOperation op = new VectorArithmeticOperation(provider, SpaceId.FULL, expr, k);
         VectorArithmeticResult result = (VectorArithmeticResult) op.execute();
-        return result.getTopK();
+        return result.getNeighbors();
     }
 
     public List<Neighbor> subspaceGrouping(List<String> keys, int k) {
