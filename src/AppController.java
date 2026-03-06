@@ -10,16 +10,10 @@ public class AppController {
         if (provider == null) {
             throw new IllegalArgumentException("provider is null");
         }
-
         this.provider = provider;
 
-        // Start with PCA projection on the first two components (0,1)
         this.axes = new AxisSelection(0, 1);
     }
-
-    // =========================
-    // Axes selection (2D / 3D)
-    // =========================
 
     public void setAxes2D(int x, int y) {
         axes.set2D(x, y);
@@ -29,15 +23,7 @@ public class AppController {
         axes.set3D(x, y, z);
     }
 
-    public AxisSelection getAxes() {
-        return axes;
-    }
 
-    // =========================
-    // Metric / distance strategy
-    // =========================
-
-    // Allow UI to change metric through the controller only
     public void setDistanceStrategy(DistanceStrategy strategy) {
         provider.setDistanceStrategy(strategy);
     }
@@ -46,9 +32,6 @@ public class AppController {
         return provider.getDistanceStrategy();
     }
 
-    // =========================
-    // Operations (research actions)
-    // =========================
 
     public List<Neighbor> nearestNeighbors(String word, int k) {
         NearestNeighborsOperation op = new NearestNeighborsOperation(provider, SpaceId.FULL, word, k);
@@ -73,33 +56,6 @@ public class AppController {
         return result.getNeighbors();
     }
 
-    // =========================
-    // PCA plotting helpers
-    // =========================
-
-    public double[] getPoint(String word) {
-        EmbeddingSpace pcaSpace = provider.getSpace(SpaceId.PCA);
-        Embedding embedding = pcaSpace.get(word);
-        if (embedding == null) {
-            throw new UnknownWordException(word);
-        }
-        Vector v = embedding.getVector();
-
-        int xIndex = axes.getXIndex();
-        int yIndex = axes.getYIndex();
-
-        double x = v.get(xIndex);
-        double y = v.get(yIndex);
-
-        if (!axes.is3D()) {
-            return new double[]{x, y};
-        }
-
-        int zIndex = axes.getZIndex();
-        double z = v.get(zIndex);
-
-        return new double[]{x, y, z};
-    }
 
     public List<PlotPoint> getAllPcaPoints2D() {
 
@@ -151,10 +107,6 @@ public class AppController {
         EmbeddingSpace pcaSpace = provider.getSpace(SpaceId.PCA);
         return pcaSpace.dimension();
     }
-
-    // =========================
-    // Direct distance query
-    // =========================
 
     public double distanceBetween(String word1, String word2) {
 

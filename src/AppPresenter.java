@@ -12,7 +12,6 @@ public class AppPresenter {
         if (controller == null || uiState == null) {
             throw new IllegalArgumentException("controller/uiState cannot be null");
         }
-
         this.controller = controller;
         this.uiState = uiState;
 
@@ -20,7 +19,9 @@ public class AppPresenter {
     }
 
     public void onItemSelected(String key) {
-        if (isBlank(key)) return;
+        if (isBlank(key)) {
+            return;
+        }
 
         uiState.setError("");
         uiState.setStatus("Selected: " + key);
@@ -35,10 +36,15 @@ public class AppPresenter {
     }
 
     public void onMetricSelected(MetricType type) {
-        if (type == null) return;
-
-        DistanceStrategy strategy =
-                (type == MetricType.COSINE) ? new CosineDistance() : new EuclideanDistance();
+        if (type == null) {
+            return;
+        }
+        DistanceStrategy strategy;
+        if (type == MetricType.COSINE) {
+            strategy = new CosineDistance();
+        } else {
+            strategy = new EuclideanDistance();
+        }
 
         controller.setDistanceStrategy(strategy);
 
