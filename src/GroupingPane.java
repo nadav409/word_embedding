@@ -8,11 +8,10 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 import java.util.List;
-import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-public class GroupingPane implements UiStateListener {
+public class GroupingPane {
 
     private final VBox root = new VBox(10);
 
@@ -20,7 +19,7 @@ public class GroupingPane implements UiStateListener {
     private final Button addBtn = new Button("Add");
 
     private final Button removeBtn = new Button("Remove Selected");
-    private final Button removeAllBtn = new Button("Remove All"); // 🔥 חדש
+    private final Button removeAllBtn = new Button("Remove All");
 
     private final ListView<String> groupList = new ListView<>();
     private final ObservableList<String> groupItems =
@@ -53,13 +52,16 @@ public class GroupingPane implements UiStateListener {
 
         removeBtn.setOnAction(e -> {
             String selected = groupList.getSelectionModel().getSelectedItem();
-            if (selected != null) groupItems.remove(selected);
+            if (selected != null) {
+                groupItems.remove(selected);
+            }
         });
 
-        // 🔥 Remove All
         removeAllBtn.setOnAction(e -> {
             groupItems.clear();
             resultsList.getItems().clear();
+            statusLabel.setText("");
+            errorLabel.setText("");
         });
 
         groupList.setItems(groupItems);
@@ -70,14 +72,14 @@ public class GroupingPane implements UiStateListener {
         resultsList.setPrefHeight(140);
 
         HBox addRow = new HBox(8, inputField, addBtn);
-        HBox removeRow = new HBox(8, removeBtn, removeAllBtn); // 🔥 שורה חדשה
+        HBox removeRow = new HBox(8, removeBtn, removeAllBtn);
         HBox kRow = new HBox(8, new Label("K:"), kField);
 
         root.getChildren().addAll(
                 new Label("Group:"),
                 addRow,
                 groupList,
-                removeRow,   // 🔥 פה זה נכנס
+                removeRow,
                 kRow,
                 computeBtn,
                 new Label("Closest to centroid:"),
@@ -95,10 +97,56 @@ public class GroupingPane implements UiStateListener {
         this.groupingHandler = handler;
     }
 
-    private void addFromInput() {
+    public void setVisiblePane(boolean visible) {
+        root.setVisible(visible);
+        root.setManaged(visible);
+    }
 
+    public void acceptSelectedKey(String key) {
+        if (key == null || key.isBlank()) {
+            return;
+        }
+
+        if (!groupItems.contains(key)) {
+            groupItems.add(key);
+        }
+    }
+
+    public List<String> getGroupItems() {
+        return List.copyOf(groupItems);
+    }
+
+    public void showResults(List<Neighbor> results) {
+        resultsList.getItems().clear();
+
+        if (results == null || results.isEmpty()) {
+            return;
+        }
+
+        for (Neighbor n : results) {
+            resultsList.getItems().add(
+                    n.getKey() + "  |  " + String.format("%.4f", n.getDistance())
+            );
+        }
+    }
+
+    public void clearResults() {
+        resultsList.getItems().clear();
+    }
+
+    public void setStatus(String message) {
+        statusLabel.setText(message == null ? "" : message);
+    }
+
+    public void setError(String message) {
+        errorLabel.setText(message == null ? "" : message);
+    }
+
+    private void addFromInput() {
         String text = inputField.getText();
-        if (text == null || text.isBlank()) return;
+        if (text == null || text.isBlank()) {
+            return;
+        }
 
         text = text.trim();
 
@@ -110,9 +158,13 @@ public class GroupingPane implements UiStateListener {
     }
 
     private void fireCompute() {
+        if (groupingHandler == null) {
+            return;
+        }
 
-        if (groupingHandler == null) return;
-        if (groupItems.size() < 2) return;
+        if (groupItems.size() < 2) {
+            return;
+        }
 
         int k;
         try {
@@ -124,49 +176,4 @@ public class GroupingPane implements UiStateListener {
 
         groupingHandler.accept(List.copyOf(groupItems), k);
     }
-
-    @Override
-    public void onSelectionChanged(String key) {
-        if (key == null || key.isBlank()) return;
-
-        if (!groupItems.contains(key)) {
-            groupItems.add(key);
-        }
-    }
-
-    @Override
-    public void onPrimaryResultsChanged(List<Neighbor> results) {
-
-        resultsList.getItems().clear();
-
-        if (results == null || results.isEmpty()) return;
-
-        for (Neighbor n : results) {
-            resultsList.getItems().add(
-                    n.getKey() + "  |  " + String.format("%.4f", n.getDistance())
-            );
-        }
-    }
-
-    @Override public void onHighlightsChanged(Set<String> highlightedKeys) {}
-
-    @Override
-    public void onStatusChanged(String message) {
-        statusLabel.setText(message == null ? "" : message);
-    }
-
-    @Override
-    public void onErrorChanged(String message) {
-        errorLabel.setText(message == null ? "" : message);
-    }
-
-    @Override
-    public void onOperationChanged(OperationType type) {
-        boolean visible = (type == OperationType.GROUPING);
-        root.setVisible(visible);
-        root.setManaged(visible);
-    }
-
-    @Override public void onMetricChanged(DistanceStrategy metric) {}
-    @Override public void onProjectionResultChanged(CustomProjectionResult res) {}
 }

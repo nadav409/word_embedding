@@ -7,7 +7,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-public class PlotPane extends StackPane implements UiStateListener {
+public class PlotPane extends StackPane {
 
     private final PlotView view2D;
     private final PlotView view3D;
@@ -30,15 +30,15 @@ public class PlotPane extends StackPane implements UiStateListener {
 
         setPickOnBounds(true);
 
-        setMode(false); // default 2D
+        setMode(false);
     }
 
     public void setMode(boolean is3D) {
-
         PlotView newView = is3D ? view3D : view2D;
 
-        if (activeView == newView)
+        if (activeView == newView) {
             return;
+        }
 
         activeView = newView;
 
@@ -46,8 +46,9 @@ public class PlotPane extends StackPane implements UiStateListener {
         getChildren().add(activeView.getNode());
 
         activeView.setOnItemClicked(key -> {
-            if (onItemClicked != null)
+            if (onItemClicked != null) {
                 onItemClicked.accept(key);
+            }
         });
 
         refreshState();
@@ -63,40 +64,26 @@ public class PlotPane extends StackPane implements UiStateListener {
         refreshLabels();
     }
 
-    // =========================
-    // UiStateListener
-    // =========================
+    // ===== direct calls from presenter =====
 
-    @Override
-    public void onSelectionChanged(String key) {
+    public void setSelectedKey(String key) {
         this.selectedKey = key;
         refreshState();
     }
 
-    @Override
-    public void onPrimaryResultsChanged(List<Neighbor> results) {
-
-        if (results == null || results.isEmpty()) {
-            resultKeys = Set.of();
-        } else {
-            resultKeys = results.stream()
-                    .map(Neighbor::getKey)
-                    .filter(k -> k != null && !k.isBlank())
-                    .collect(Collectors.toSet());
-        }
-
+    public void setNeighborHighlights(Set<String> keys) {
+        this.resultKeys = (keys == null) ? Set.of() : Set.copyOf(keys);
         refreshState();
     }
 
-    @Override
-    public void onHighlightsChanged(Set<String> highlightedKeys) {
-
-        groupKeys = highlightedKeys == null
-                ? Set.of()
-                : Set.copyOf(highlightedKeys);
-
+    public void clearNeighborHighlights() {
+        this.resultKeys = Set.of();
         refreshState();
     }
+
+
+
+
 
     private void refreshState() {
         view2D.setSelectedKey(selectedKey);
@@ -112,11 +99,11 @@ public class PlotPane extends StackPane implements UiStateListener {
     }
 
     private void refreshLabels() {
-
         Set<String> labels = new HashSet<>();
 
-        if (selectedKey != null && !selectedKey.isBlank())
+        if (selectedKey != null && !selectedKey.isBlank()) {
             labels.add(selectedKey);
+        }
 
         labels.addAll(groupKeys);
         labels.addAll(resultKeys);
@@ -125,9 +112,14 @@ public class PlotPane extends StackPane implements UiStateListener {
         view3D.setLabels(labels);
     }
 
-    @Override public void onMetricChanged(DistanceStrategy metric) {}
-    @Override public void onStatusChanged(String message) {}
-    @Override public void onErrorChanged(String message) {}
-    @Override public void onOperationChanged(OperationType type) {}
-    @Override public void onProjectionResultChanged(CustomProjectionResult res) {}
+    public void setGroupHighlights(Set<String> keys) {
+        this.groupKeys = (keys == null) ? Set.of() : Set.copyOf(keys);
+        refreshState();
+    }
+
+    public void clearGroupHighlights() {
+        this.groupKeys = Set.of();
+        refreshState();
+    }
+
 }

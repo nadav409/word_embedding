@@ -5,12 +5,10 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
-import java.util.List;
-import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-public class DistancePane implements UiStateListener {
+public class DistancePane {
 
     private final VBox root = new VBox(10);
 
@@ -89,64 +87,43 @@ public class DistancePane implements UiStateListener {
         this.metricHandler = handler;
     }
 
-    // ===============================
-    // UiStateListener
-    // ===============================
-
-    @Override
-    public void onSelectionChanged(String key) {
-
-        if (key == null || key.isBlank()) return;
-
-        if (itemAField.getText().isBlank()) {
-            fillFieldSilently(itemAField, key);
-        } else if (itemBField.getText().isBlank()) {
-            fillFieldSilently(itemBField, key);
-        } else {
-            fillFieldSilently(itemAField, key);
-            itemBField.clear();
-        }
-    }
-
-    private void fillFieldSilently(TextField field, String value) {
-
-        Object data = field.getUserData();
-        if (data instanceof boolean[] suppress) {
-            suppress[0] = true;
-            field.setText(value);
-            suppress[0] = false;
-        } else {
-            field.setText(value);
-        }
-    }
-
-    @Override
-    public void onMetricChanged(DistanceStrategy metric) {
-        if (metric instanceof EuclideanDistance)
-            metricBox.setValue(MetricType.EUCLIDEAN);
-        else
-            metricBox.setValue(MetricType.COSINE);
-    }
-
-    @Override
-    public void onStatusChanged(String message) {
-        resultLabel.setText(message == null ? "" : message);
-    }
-
-    @Override
-    public void onErrorChanged(String message) {
-        errorLabel.setText(message == null ? "" : message);
-    }
-
-    @Override public void onPrimaryResultsChanged(List<Neighbor> results) {}
-    @Override public void onHighlightsChanged(Set<String> highlightedKeys) {}
-
-    @Override
-    public void onOperationChanged(OperationType type) {
-        boolean visible = (type == OperationType.DISTANCE);
+    public void setVisiblePane(boolean visible) {
         root.setVisible(visible);
         root.setManaged(visible);
     }
 
-    @Override public void onProjectionResultChanged(CustomProjectionResult res) {}
+    public void acceptSelectedKey(String key) {
+        if (key == null || key.isBlank()) {
+            return;
+        }
+
+        if (itemAField.getText().isBlank()) {
+            itemAField.setText(key);
+        } else if (itemBField.getText().isBlank()) {
+            itemBField.setText(key);
+        } else {
+            itemAField.setText(key);
+            itemBField.clear();
+        }
+    }
+
+    public void setMetric(DistanceStrategy metric) {
+        if (metric instanceof EuclideanDistance) {
+            metricBox.setValue(MetricType.EUCLIDEAN);
+        } else {
+            metricBox.setValue(MetricType.COSINE);
+        }
+    }
+
+    public void showDistance(double dist) {
+        resultLabel.setText("Distance = " + String.format(java.util.Locale.ROOT, "%.6f", dist));
+    }
+
+    public void clearResult() {
+        resultLabel.setText("");
+    }
+
+    public void setError(String message) {
+        errorLabel.setText(message == null ? "" : message);
+    }
 }

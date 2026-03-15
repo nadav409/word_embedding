@@ -4,40 +4,33 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 
 import java.util.List;
-import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-public class VectorArithmeticPane implements UiStateListener {
+public class VectorArithmeticPane {
 
     private final VBox root = new VBox(10);
 
-    // expression editor UI
     private final TextField searchField = new TextField();
     private final Button plusBtn = new Button("+");
     private final Button minusBtn = new Button("-");
     private final Button clearBtn = new Button("Clear");
     private final Button resultBtn = new Button("RESULT");
 
-    // NEW: K field (like NeighborsPane)
     private final TextField kField = new TextField("10");
 
     private final ListView<String> exprList = new ListView<>();
 
-    // metric UI
     private final RadioButton cosineBtn = new RadioButton("Cosine");
     private final RadioButton euclidBtn = new RadioButton("Euclidean");
     private final ToggleGroup metricGroup = new ToggleGroup();
 
-    // results UI (reuse primaryResults)
     private final ListView<String> resultsList = new ListView<>();
 
-    // model
     private final VectorExpression expr = new VectorExpression();
 
-    // callbacks to Presenter
     private Consumer<MetricType> onMetricSelected;
-    private java.util.function.BiConsumer<VectorExpression, Integer> onResultRequested; // NEW
+    private java.util.function.BiConsumer<VectorExpression, Integer> onResultRequested;
 
     public VectorArithmeticPane(Consumer<TextField> autocompleteInstaller) {
 
@@ -59,27 +52,37 @@ public class VectorArithmeticPane implements UiStateListener {
         clearBtn.setOnAction(e -> {
             expr.clear();
             refreshExprList();
+            clearResults();
         });
 
         resultBtn.setOnAction(e -> {
-            if (expr.isEmpty()) return;
+            if (expr.isEmpty()) {
+                return;
+            }
 
             int k = parseKOrDefault();
-            if (onResultRequested != null) onResultRequested.accept(expr, k);
+            if (onResultRequested != null) {
+                onResultRequested.accept(expr, k);
+            }
         });
 
         HBox buildRow = new HBox(8, searchField, plusBtn, minusBtn);
         HBox.setHgrow(searchField, Priority.ALWAYS);
 
-        // metric toggle
         cosineBtn.setToggleGroup(metricGroup);
         euclidBtn.setToggleGroup(metricGroup);
         cosineBtn.setSelected(true);
 
         metricGroup.selectedToggleProperty().addListener((obs, oldT, newT) -> {
-            if (newT == null) return;
-            if (newT == cosineBtn) fireMetricSelected(MetricType.COSINE);
-            else if (newT == euclidBtn) fireMetricSelected(MetricType.EUCLIDEAN);
+            if (newT == null) {
+                return;
+            }
+
+            if (newT == cosineBtn) {
+                fireMetricSelected(MetricType.COSINE);
+            } else if (newT == euclidBtn) {
+                fireMetricSelected(MetricType.EUCLIDEAN);
+            }
         });
 
         HBox metricRow = new HBox(10, new Label("Distance:"), cosineBtn, euclidBtn);
@@ -88,7 +91,6 @@ public class VectorArithmeticPane implements UiStateListener {
         exprList.setPrefHeight(120);
         resultsList.setPrefHeight(220);
 
-        // NEW: K in actions row
         kField.setPrefColumnCount(5);
         HBox actionsRow = new HBox(8, new Label("K:"), kField, resultBtn, clearBtn);
         actionsRow.setStyle("-fx-alignment: center-left;");
@@ -113,7 +115,6 @@ public class VectorArithmeticPane implements UiStateListener {
         return root;
     }
 
-    // wiring
     public void setOnMetricSelected(Consumer<MetricType> cb) {
         this.onMetricSelected = cb;
     }
@@ -122,10 +123,49 @@ public class VectorArithmeticPane implements UiStateListener {
         this.onResultRequested = cb;
     }
 
-    // helpers
+    public void setVisiblePane(boolean visible) {
+        root.setVisible(visible);
+        root.setManaged(visible);
+    }
+
+    public void acceptSelectedKey(String key) {
+        if (key == null || key.isBlank()) {
+            return;
+        }
+
+        searchField.setText(key);
+        searchField.positionCaret(searchField.getText().length());
+    }
+
+    public void setMetric(DistanceStrategy metric) {
+        if (metric instanceof EuclideanDistance) {
+            euclidBtn.setSelected(true);
+        } else {
+            cosineBtn.setSelected(true);
+        }
+    }
+
+    public void showResults(List<Neighbor> results) {
+        if (results == null) {
+            results = List.of();
+        }
+
+        resultsList.getItems().setAll(
+                results.stream()
+                        .map(n -> n.getKey() + "  (" + fmt(n.getDistance()) + ")")
+                        .collect(Collectors.toList())
+        );
+    }
+
+    public void clearResults() {
+        resultsList.getItems().clear();
+    }
+
     private void addStep(CombineOp op) {
         String key = (searchField.getText() == null) ? "" : searchField.getText().trim();
-        if (key.isBlank()) return;
+        if (key.isBlank()) {
+            return;
+        }
 
         expr.add(op, key);
         searchField.clear();
@@ -161,47 +201,8 @@ public class VectorArithmeticPane implements UiStateListener {
     }
 
     private void fireMetricSelected(MetricType type) {
-        if (onMetricSelected != null) onMetricSelected.accept(type);
-    }
-
-    // ===== UiStateListener =====
-
-    @Override
-    public void onMetricChanged(DistanceStrategy metric) {
-        // display sync only
-        if (metric instanceof EuclideanDistance) euclidBtn.setSelected(true);
-        else cosineBtn.setSelected(true);
-    }
-
-    @Override
-    public void onPrimaryResultsChanged(List<Neighbor> results) {
-        if (results == null) results = List.of();
-
-        resultsList.getItems().setAll(
-                results.stream()
-                        .map(n -> n.getKey() + "  (" + fmt(n.getDistance()) + ")")
-                        .collect(Collectors.toList())
-        );
-    }
-
-    @Override
-    public void onSelectionChanged(String key) {
-        // nice UX: click on plot fills the box
-        if (key != null && !key.isBlank()) {
-            searchField.setText(key);
-            searchField.positionCaret(searchField.getText().length());
+        if (onMetricSelected != null) {
+            onMetricSelected.accept(type);
         }
     }
-
-    @Override
-    public void onOperationChanged(OperationType type) {
-        boolean visible = (type == OperationType.ARITHMETIC);
-        root.setVisible(visible);
-        root.setManaged(visible);
-    }
-
-    @Override public void onHighlightsChanged(Set<String> keys) {}
-    @Override public void onStatusChanged(String msg) {}
-    @Override public void onErrorChanged(String msg) {}
-   public void onProjectionResultChanged(CustomProjectionResult res){}
 }

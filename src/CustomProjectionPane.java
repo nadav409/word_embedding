@@ -7,10 +7,9 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 import java.util.List;
-import java.util.Set;
 import java.util.function.Consumer;
 
-public class CustomProjectionPane implements UiStateListener {
+public class CustomProjectionPane {
 
     private final VBox root = new VBox(10);
 
@@ -31,11 +30,8 @@ public class CustomProjectionPane implements UiStateListener {
     private final Label statusLabel = new Label("");
     private final Label errorLabel = new Label("");
 
-    // callbacks to Presenter
-    private Consumer<MetricType> onMetricSelected;
     private TriConsumer<String, String, Integer> onProjectRequested;
 
-    // which field should receive plot-click word?
     private enum TargetField { A, B }
     private TargetField activeTarget = TargetField.A;
 
@@ -51,19 +47,23 @@ public class CustomProjectionPane implements UiStateListener {
             installAutocomplete.accept(bField);
         }
 
-        // remember last focused field (A/B)
         aField.focusedProperty().addListener((obs, was, isNow) -> {
-            if (isNow) activeTarget = TargetField.A;
+            if (isNow) {
+                activeTarget = TargetField.A;
+            }
         });
 
         bField.focusedProperty().addListener((obs, was, isNow) -> {
-            if (isNow) activeTarget = TargetField.B;
+            if (isNow) {
+                activeTarget = TargetField.B;
+            }
         });
 
         aField.setPrefWidth(120);
         bField.setPrefWidth(120);
 
-        HBox abRow = new HBox(8,
+        HBox abRow = new HBox(
+                8,
                 aLabel, aField,
                 new Label("→"),
                 bLabel, bField
@@ -73,9 +73,9 @@ public class CustomProjectionPane implements UiStateListener {
         HBox.setHgrow(aField, Priority.NEVER);
         HBox.setHgrow(bField, Priority.NEVER);
 
-        // Row: K + Project
         kField.setPrefColumnCount(5);
-        HBox actionRow = new HBox(8,
+        HBox actionRow = new HBox(
+                8,
                 new Label("K:"),
                 kField,
                 projectBtn
@@ -85,7 +85,8 @@ public class CustomProjectionPane implements UiStateListener {
         aList.setPrefHeight(260);
         bList.setPrefHeight(260);
 
-        HBox lists = new HBox(12,
+        HBox lists = new HBox(
+                12,
                 box("Most A-like:", aList),
                 box("Most B-like:", bList)
         );
@@ -106,7 +107,6 @@ public class CustomProjectionPane implements UiStateListener {
         root.setPadding(new Insets(10));
         root.setStyle("-fx-border-color: rgba(0,0,0,0.15); -fx-border-radius: 8; -fx-background-radius: 8;");
 
-        // events
         projectBtn.setOnAction(e -> requestProject());
 
         aField.setOnKeyPressed(e -> {
@@ -140,39 +140,19 @@ public class CustomProjectionPane implements UiStateListener {
         return root;
     }
 
-    // wiring
-
     public void setOnProjectRequested(TriConsumer<String, String, Integer> cb) {
         this.onProjectRequested = cb;
     }
 
-    public void showResult(CustomProjectionResult res) {
-
-        if (res == null) {
-            title.setText("Custom Projection");
-            aList.getItems().setAll("(no results)");
-            bList.getItems().setAll("(no results)");
-            return;
-        }
-
-        title.setText("Custom Projection (" + res.getA() + " → " + res.getB() + ")");
-
-        aList.getItems().setAll(formatItems(res.getTopA()));
-        bList.getItems().setAll(formatItems(res.getTopB()));
-    }
-
-    // ===== UiStateListener =====
-
-    @Override
-    public void onOperationChanged(OperationType type) {
-        boolean visible = (type == OperationType.PROJECTION);
+    public void setVisiblePane(boolean visible) {
         root.setVisible(visible);
         root.setManaged(visible);
     }
 
-    @Override
-    public void onSelectionChanged(String key) {
-        if (key == null || key.isBlank()) return;
+    public void acceptSelectedKey(String key) {
+        if (key == null || key.isBlank()) {
+            return;
+        }
 
         if (activeTarget == TargetField.B) {
             bField.setText(key);
@@ -185,35 +165,50 @@ public class CustomProjectionPane implements UiStateListener {
         updateButtonEnabled();
     }
 
-    @Override
-    public void onProjectionResultChanged(CustomProjectionResult res) {
-        showResult(res);
+    public void showResult(CustomProjectionResult res) {
+        if (res == null) {
+            title.setText("Custom Projection");
+            aList.getItems().setAll("(no results)");
+            bList.getItems().setAll("(no results)");
+            return;
+        }
+
+        title.setText("Custom Projection (" + res.getA() + " → " + res.getB() + ")");
+        aList.getItems().setAll(formatItems(res.getTopA()));
+        bList.getItems().setAll(formatItems(res.getTopB()));
     }
 
-    @Override public void onMetricChanged(DistanceStrategy metric) {}
-    @Override public void onPrimaryResultsChanged(List<Neighbor> results) {}
-    @Override public void onHighlightsChanged(Set<String> keys) {}
-    @Override public void onStatusChanged(String msg) { statusLabel.setText(msg == null ? "" : msg); }
-    @Override public void onErrorChanged(String msg) { errorLabel.setText(msg == null ? "" : msg); }
+    public void clearResult() {
+        title.setText("Custom Projection");
+        aList.getItems().clear();
+        bList.getItems().clear();
+    }
 
-    // ===== internals =====
+    public void setStatus(String msg) {
+        statusLabel.setText(msg == null ? "" : msg);
+    }
+
+    public void setError(String msg) {
+        errorLabel.setText(msg == null ? "" : msg);
+    }
 
     private void requestProject() {
-
-        if (onProjectRequested == null) return;
+        if (onProjectRequested == null) {
+            return;
+        }
 
         String a = aField.getText() == null ? "" : aField.getText().trim();
         String b = bField.getText() == null ? "" : bField.getText().trim();
 
-        if (a.isBlank() || b.isBlank()) return;
+        if (a.isBlank() || b.isBlank()) {
+            return;
+        }
 
         int k = parseKOrDefault();
-
         onProjectRequested.accept(a, b, k);
     }
 
     private int parseKOrDefault() {
-
         int k;
 
         try {
@@ -245,7 +240,9 @@ public class CustomProjectionPane implements UiStateListener {
     }
 
     private List<String> formatItems(List<CustomProjectionItem> items) {
-        if (items == null || items.isEmpty()) return List.of("(no results)");
+        if (items == null || items.isEmpty()) {
+            return List.of("(no results)");
+        }
 
         return items.stream()
                 .map(it -> it.getKey() + "  |  " +

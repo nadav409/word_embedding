@@ -6,16 +6,41 @@ import java.util.Set;
 public class AppPresenter {
 
     private final AppController controller;
-    private final UiState uiState;
+    private final NeighborsPane neighborsPane;
+    private final PlotPane plotPane;
+    private final DistancePane distancePane;
+    private final GroupingPane groupingPane;
+    private final CustomProjectionPane projectionPane;
+    private final VectorArithmeticPane vectorPane;
 
-    public AppPresenter(AppController controller, UiState uiState) {
-        if (controller == null || uiState == null) {
-            throw new IllegalArgumentException("controller/uiState cannot be null");
+    private String selectedKey;
+
+    public AppPresenter(AppController controller,
+                        NeighborsPane neighborsPane,
+                        PlotPane plotPane,
+                        DistancePane distancePane,
+                        GroupingPane groupingPane,
+                        CustomProjectionPane projectionPane,
+                        VectorArithmeticPane vectorPane) {
+        if (controller == null || neighborsPane == null
+                || plotPane == null || distancePane == null
+                || groupingPane == null || projectionPane == null
+                || vectorPane == null) {
+            throw new IllegalArgumentException("arguments cannot be null");
         }
-        this.controller = controller;
-        this.uiState = uiState;
 
-        uiState.setMetric(controller.getDistanceStrategy());
+        this.controller = controller;
+        this.neighborsPane = neighborsPane;
+        this.plotPane = plotPane;
+        this.distancePane = distancePane;
+        this.groupingPane = groupingPane;
+        this.projectionPane = projectionPane;
+        this.vectorPane = vectorPane;
+
+        DistanceStrategy initialMetric = controller.getDistanceStrategy();
+        neighborsPane.setMetric(initialMetric);
+        distancePane.setMetric(initialMetric);
+        vectorPane.setMetric(initialMetric);
     }
 
     public void onItemSelected(String key) {
@@ -23,22 +48,45 @@ public class AppPresenter {
             return;
         }
 
-        uiState.setError("");
-        uiState.setStatus("Selected: " + key);
-        uiState.setSelectedKey(key);
+        selectedKey = key;
 
-        clearResults();
+        neighborsPane.setError("");
+        neighborsPane.setStatus("Selected: " + key);
+        neighborsPane.setSelectedWord(key);
+
+        distancePane.acceptSelectedKey(key);
+        distancePane.setError("");
+        distancePane.clearResult();
+
+        groupingPane.acceptSelectedKey(key);
+        groupingPane.setError("");
+
+        projectionPane.acceptSelectedKey(key);
+        projectionPane.setError("");
+
+        vectorPane.acceptSelectedKey(key);
+
+        plotPane.setSelectedKey(key);
+
+        clearNeighborsOutput();
     }
 
     public void onOperationSelected(OperationType op) {
-        if (op == null) return;
-        uiState.setSelectedOperation(op);
+        if (op == null) {
+            return;
+        }
+
+        DistanceStrategy strategy = controller.getDistanceStrategy();
+        neighborsPane.setMetric(strategy);
+        distancePane.setMetric(strategy);
+        vectorPane.setMetric(strategy);
     }
 
     public void onMetricSelected(MetricType type) {
         if (type == null) {
             return;
         }
+
         DistanceStrategy strategy;
         if (type == MetricType.COSINE) {
             strategy = new CosineDistance();
@@ -48,138 +96,168 @@ public class AppPresenter {
 
         controller.setDistanceStrategy(strategy);
 
-        uiState.setError("");
-        uiState.setMetric(strategy);
-        uiState.setStatus("Metric: " + strategy.getClass().getSimpleName());
+        neighborsPane.setMetric(strategy);
+        neighborsPane.setError("");
+        neighborsPane.setStatus("Metric: " + strategy.getClass().getSimpleName());
+
+        distancePane.setMetric(strategy);
+        distancePane.setError("");
+        distancePane.clearResult();
+
+        vectorPane.setMetric(strategy);
     }
 
     public void onFindNeighborsRequested(int k) {
-        String selected = uiState.getSelectedKey();
-        if (isBlank(selected)) {
-            uiState.setError("No item selected");
-            uiState.setStatus("Select an item first");
+        if (isBlank(selectedKey)) {
+            neighborsPane.setError("No item selected");
+            neighborsPane.setStatus("Select an item first");
             return;
         }
 
         k = normalizeK(k);
 
         try {
-            uiState.setError("");
-            uiState.setStatus("Searching neighbors…");
+            neighborsPane.setError("");
+            neighborsPane.setStatus("Searching neighbors...");
 
-            List<Neighbor> neighbors = controller.nearestNeighbors(selected, k);
-            uiState.setPrimaryResults(neighbors);
-            uiState.setHighlightedKeys(buildHighlightsFromNeighbors(neighbors, Set.of(selected)));
+            List<Neighbor> neighbors = controller.nearestNeighbors(selectedKey, k);
 
-            uiState.setStatus("Found " + neighbors.size() + " neighbors");
+            neighborsPane.showResults(neighbors);
+            plotPane.setNeighborHighlights(
+                    buildHighlightsFromNeighbors(neighbors, Set.of(selectedKey))
+            );
+            plotPane.clearGroupHighlights();
+
+            neighborsPane.setStatus("Found " + neighbors.size() + " neighbors");
 
         } catch (Exception ex) {
-            uiState.setError("ERROR: " + ex.getMessage());
-            uiState.setStatus("Failed");
+            clearNeighborsOutput();
+            neighborsPane.setError("ERROR: " + ex.getMessage());
+            neighborsPane.setStatus("Failed");
         }
     }
 
     public void onVectorResultRequested(VectorExpression expr, int k) {
-        if (expr == null || expr.isEmpty()) return;
+        if (expr == null || expr.isEmpty()) {
+            return;
+        }
 
         k = normalizeK(k);
 
-        uiState.setError("");
-        uiState.setStatus("Computing vector expression...");
-
         try {
+            plotPane.clearGroupHighlights();
+
             List<Neighbor> neighbors = controller.vectorArithmetic(expr, k);
 
-            uiState.setPrimaryResults(neighbors);
-            uiState.setHighlightedKeys(buildHighlightsFromNeighbors(neighbors, Set.of()));
-
-            uiState.setStatus("Done");
-
-        } catch (UnknownWordException ex) {
-            clearResults();
-            uiState.setError("Unknown word: " + ex.getMessage());
+            vectorPane.showResults(neighbors);
+            plotPane.setNeighborHighlights(
+                    buildHighlightsFromNeighbors(neighbors, Set.of())
+            );
 
         } catch (Exception ex) {
-            clearResults();
-            uiState.setError("Error: " + ex.getMessage());
+            vectorPane.clearResults();
+            plotPane.clearNeighborHighlights();
         }
     }
 
     public void onProjectionRequested(String a, String b, int k) {
-        if (isBlank(a) || isBlank(b)) return;
+        if (isBlank(a) || isBlank(b)) {
+            return;
+        }
 
         k = normalizeK(k);
 
-        uiState.setError("");
-        uiState.setStatus("Projecting...");
+        plotPane.clearNeighborHighlights();
+        plotPane.clearGroupHighlights();
+
+        projectionPane.setError("");
+        projectionPane.setStatus("Projecting...");
 
         try {
             CustomProjectionResult res = controller.customProjection(a, b, k);
-            uiState.setProjectionResult(res);
-            uiState.setStatus("Done");
+
+            projectionPane.showResult(res);
+            plotPane.setNeighborHighlights(Set.of(a, b));
+
+            projectionPane.setStatus("Done");
 
         } catch (UnknownWordException ex) {
-            uiState.setProjectionResult(null);
-            uiState.setStatus("");
-            uiState.setError("Unknown word: " + ex.getMessage());
+            projectionPane.clearResult();
+            projectionPane.setStatus("");
+            projectionPane.setError("Unknown word: " + ex.getMessage());
 
         } catch (Exception ex) {
-            uiState.setProjectionResult(null);
-            uiState.setStatus("");
-            uiState.setError("Error: " + ex.getMessage());
+            projectionPane.clearResult();
+            projectionPane.setStatus("");
+            projectionPane.setError("Error: " + ex.getMessage());
         }
     }
 
     public void onDistanceRequested(String a, String b) {
         if (isBlank(a) || isBlank(b)) {
-            uiState.setError("Select two items");
+            distancePane.setError("Select two items");
+            distancePane.clearResult();
+            plotPane.setNeighborHighlights(Set.of());
             return;
         }
 
         try {
-            uiState.setError("");
+            plotPane.clearGroupHighlights();
+
+            distancePane.setError("");
 
             double dist = controller.distanceBetween(a, b);
-            String msg = "Distance = " + String.format(java.util.Locale.ROOT, "%.6f", dist);
+            distancePane.showDistance(dist);
 
-            uiState.setStatus(msg);
-            uiState.setHighlightedKeys(Set.of(a, b));
+            plotPane.setNeighborHighlights(Set.of(a, b));
 
         } catch (Exception ex) {
-            uiState.setError("Error: " + ex.getMessage());
-            uiState.setHighlightedKeys(Set.of());
+            distancePane.setError("Error: " + ex.getMessage());
+            distancePane.clearResult();
+            plotPane.setNeighborHighlights(Set.of());
         }
     }
 
     public void onGroupingRequested(List<String> keys, int k) {
         if (keys == null || keys.size() < 2) {
-            uiState.setError("Select at least 2 items");
+            groupingPane.setError("Select at least 2 items");
+            groupingPane.setStatus("");
+            groupingPane.clearResults();
+            plotPane.clearGroupHighlights();
+            plotPane.clearNeighborHighlights();
             return;
         }
 
         k = normalizeK(k);
 
         try {
-            uiState.setError("");
-            uiState.setStatus("Computing centroid...");
+            groupingPane.setError("");
+            groupingPane.setStatus("Computing centroid...");
 
-            uiState.setHighlightedKeys(new HashSet<>(keys));
+            plotPane.setGroupHighlights(new HashSet<>(keys));
 
             List<Neighbor> neighbors = controller.subspaceGrouping(keys, k);
-            uiState.setPrimaryResults(neighbors);
 
-            uiState.setStatus("Done");
+            groupingPane.showResults(neighbors);
+
+            plotPane.setNeighborHighlights(
+                    buildHighlightsFromNeighbors(neighbors, new HashSet<>(keys))
+            );
+
+            groupingPane.setStatus("Done");
 
         } catch (Exception ex) {
-            uiState.setError("Error: " + ex.getMessage());
-            uiState.setStatus("");
+            groupingPane.setError("Error: " + ex.getMessage());
+            groupingPane.setStatus("");
+            groupingPane.clearResults();
+            plotPane.clearNeighborHighlights();
         }
     }
 
-    private void clearResults() {
-        uiState.setPrimaryResults(List.of());
-        uiState.setHighlightedKeys(Set.of());
-        uiState.setStatus("");
+    private void clearNeighborsOutput() {
+        neighborsPane.clearResults();
+        neighborsPane.setStatus("");
+        plotPane.clearNeighborHighlights();
     }
 
     private static int normalizeK(int k) {
@@ -192,15 +270,27 @@ public class AppPresenter {
 
     private static Set<String> buildHighlightsFromNeighbors(List<Neighbor> neighbors, Set<String> excluded) {
         LinkedHashSet<String> out = new LinkedHashSet<>();
-        if (neighbors == null) return out;
+        if (neighbors == null) {
+            return out;
+        }
 
         for (Neighbor n : neighbors) {
-            if (n == null) continue;
+            if (n == null) {
+                continue;
+            }
+
             String key = n.getKey();
-            if (key == null || key.isBlank()) continue;
-            if (excluded != null && excluded.contains(key)) continue;
+            if (key == null || key.isBlank()) {
+                continue;
+            }
+
+            if (excluded != null && excluded.contains(key)) {
+                continue;
+            }
+
             out.add(key);
         }
+
         return out;
     }
 }

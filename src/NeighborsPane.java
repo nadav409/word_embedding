@@ -7,14 +7,12 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 import java.util.List;
-import java.util.Set;
 import java.util.function.Consumer;
 
-public class NeighborsPane implements UiStateListener {
+public class NeighborsPane {
 
     private final VBox root = new VBox(10);
 
-    // UI
     private final Label selectedLabel = new Label("Selected: (none)");
     private final TextField searchField = new TextField();
     private final TextField kField = new TextField("10");
@@ -28,13 +26,9 @@ public class NeighborsPane implements UiStateListener {
     private final Label statusLabel = new Label("");
     private final Label errorLabel = new Label("");
 
-    // callbacks (to Presenter)
     private Consumer<String> onSearchPicked;
     private Consumer<Integer> onFindNeighborsRequested;
-    private Consumer<MetricType> onMetricSelected;   // ✅ UI enum, not DistanceStrategy
-
-    // local state
-    private String selectedKey;
+    private Consumer<MetricType> onMetricSelected;
 
     public NeighborsPane(Consumer<TextField> installAutocomplete) {
 
@@ -49,11 +43,8 @@ public class NeighborsPane implements UiStateListener {
             installAutocomplete.accept(searchField);
         }
 
-        // Metric row
         cosineBtn.setToggleGroup(metricGroup);
         euclideanBtn.setToggleGroup(metricGroup);
-
-        // default selection
         cosineBtn.setSelected(true);
 
         HBox metricRow = new HBox(10, new Label("Distance:"), cosineBtn, euclideanBtn);
@@ -65,7 +56,6 @@ public class NeighborsPane implements UiStateListener {
             else if (newT == euclideanBtn) fireMetricSelected(MetricType.EUCLIDEAN);
         });
 
-        // Action row
         kField.setPrefColumnCount(5);
         findBtn.setDisable(true);
 
@@ -91,7 +81,6 @@ public class NeighborsPane implements UiStateListener {
         root.setPadding(new Insets(8));
         root.setStyle("-fx-border-color: rgba(0,0,0,0.15); -fx-border-radius: 8; -fx-background-radius: 8;");
 
-        // Events → Presenter
         findBtn.setOnAction(e -> requestFindNeighbors());
 
         searchField.setOnKeyPressed(e -> {
@@ -114,8 +103,6 @@ public class NeighborsPane implements UiStateListener {
         return root;
     }
 
-    // ---------- Wiring (Presenter sets these) ----------
-
     public void setOnSearchPicked(Consumer<String> handler) {
         this.onSearchPicked = handler;
     }
@@ -128,31 +115,25 @@ public class NeighborsPane implements UiStateListener {
         this.onMetricSelected = handler;
     }
 
-    // ---------- UiStateListener ----------
-
-    @Override
-    public void onSelectionChanged(String selectedKey) {
-        this.selectedKey = selectedKey;
-
+    public void setSelectedWord(String selectedKey) {
         if (selectedKey == null || selectedKey.isBlank()) {
             selectedLabel.setText("Selected: (none)");
             findBtn.setDisable(true);
-            resultsList.getItems().setAll("Select an item, then click 'Find neighbors'.");
         } else {
             selectedLabel.setText("Selected: " + selectedKey);
             findBtn.setDisable(false);
         }
     }
 
-    @Override
-    public void onMetricChanged(DistanceStrategy metric) {
-        // display sync only
-        if (metric instanceof EuclideanDistance) euclideanBtn.setSelected(true);
-        else cosineBtn.setSelected(true);
+    public void setMetric(DistanceStrategy metric) {
+        if (metric instanceof EuclideanDistance) {
+            euclideanBtn.setSelected(true);
+        } else {
+            cosineBtn.setSelected(true);
+        }
     }
 
-    @Override
-    public void onPrimaryResultsChanged(List<Neighbor> results) {
+    public void showResults(List<Neighbor> results) {
         resultsList.getItems().clear();
 
         if (results == null || results.isEmpty()) {
@@ -167,29 +148,17 @@ public class NeighborsPane implements UiStateListener {
         }
     }
 
-    @Override
-    public void onHighlightsChanged(Set<String> highlightedKeys) {
-        // NeighborsPane doesn't draw highlights
+    public void clearResults() {
+        resultsList.getItems().clear();
     }
 
-    @Override
-    public void onStatusChanged(String message) {
+    public void setStatus(String message) {
         statusLabel.setText(message == null ? "" : message);
     }
 
-    @Override
-    public void onErrorChanged(String message) {
+    public void setError(String message) {
         errorLabel.setText(message == null ? "" : message);
     }
-
-    @Override
-    public void onOperationChanged(OperationType type) {
-        boolean visible = (type == OperationType.NEIGHBORS);
-        root.setVisible(visible);
-        root.setManaged(visible);
-    }
-
-    // ---------- Helpers ----------
 
     private void requestFindNeighbors() {
         if (onFindNeighborsRequested == null) return;
@@ -214,11 +183,14 @@ public class NeighborsPane implements UiStateListener {
     }
 
     private void fireSearchPicked(String key) {
-        if (onSearchPicked != null) onSearchPicked.accept(key);
+        if (onSearchPicked != null) {
+            onSearchPicked.accept(key);
+        }
     }
 
     private void fireMetricSelected(MetricType type) {
-        if (onMetricSelected != null) onMetricSelected.accept(type);
+        if (onMetricSelected != null) {
+            onMetricSelected.accept(type);
+        }
     }
-    public void onProjectionResultChanged(CustomProjectionResult res){}
 }
