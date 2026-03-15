@@ -15,20 +15,10 @@ public class AppPresenter {
 
     private String selectedKey;
 
-    public AppPresenter(AppController controller,
-                        NeighborsPane neighborsPane,
-                        PlotPane plotPane,
-                        DistancePane distancePane,
-                        GroupingPane groupingPane,
-                        CustomProjectionPane projectionPane,
-                        VectorArithmeticPane vectorPane) {
-        if (controller == null || neighborsPane == null
-                || plotPane == null || distancePane == null
-                || groupingPane == null || projectionPane == null
-                || vectorPane == null) {
+    public AppPresenter(AppController controller, NeighborsPane neighborsPane, PlotPane plotPane, DistancePane distancePane, GroupingPane groupingPane, CustomProjectionPane projectionPane, VectorArithmeticPane vectorPane) {
+        if (controller == null || neighborsPane == null || plotPane == null || distancePane == null || groupingPane == null || projectionPane == null || vectorPane == null) {
             throw new IllegalArgumentException("arguments cannot be null");
         }
-
         this.controller = controller;
         this.neighborsPane = neighborsPane;
         this.plotPane = plotPane;

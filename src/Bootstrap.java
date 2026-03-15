@@ -11,6 +11,7 @@ public class Bootstrap {
         List<RawEmbedding> rawFull = fullLoader.load();
         List<RawEmbedding> rawPca  = pcaLoader.load();
 
+
         EmbeddingSpace fullSpace = new EmbeddingSpace(toWordEmbeddings(rawFull));
         EmbeddingSpace pcaSpace  = new EmbeddingSpace(toWordEmbeddings(rawPca));
 
