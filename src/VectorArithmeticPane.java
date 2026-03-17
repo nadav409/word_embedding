@@ -1,9 +1,11 @@
 import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.control.*;
-import javafx.scene.layout.*;
-
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -17,20 +19,19 @@ public class VectorArithmeticPane {
     private final Button clearBtn = new Button("Clear");
     private final Button resultBtn = new Button("RESULT");
 
-    private final TextField kField = new TextField("10");
+    private final TextField kField = new TextField("1");
 
     private final ListView<String> exprList = new ListView<>();
+    private final ListView<String> resultsList = new ListView<>();
 
     private final RadioButton cosineBtn = new RadioButton("Cosine");
     private final RadioButton euclidBtn = new RadioButton("Euclidean");
     private final ToggleGroup metricGroup = new ToggleGroup();
 
-    private final ListView<String> resultsList = new ListView<>();
-
     private final VectorExpression expr = new VectorExpression();
 
     private Consumer<MetricType> onMetricSelected;
-    private java.util.function.BiConsumer<VectorExpression, Integer> onResultRequested;
+    private BiConsumer<VectorExpression, Integer> onResultRequested;
 
     public VectorArithmeticPane(Consumer<TextField> autocompleteInstaller) {
 
@@ -38,7 +39,6 @@ public class VectorArithmeticPane {
         title.setStyle("-fx-font-size: 14; -fx-font-weight: bold;");
 
         searchField.setPromptText("Type a word…");
-
         if (autocompleteInstaller != null) {
             autocompleteInstaller.accept(searchField);
         }
@@ -48,12 +48,7 @@ public class VectorArithmeticPane {
 
         plusBtn.setOnAction(e -> addStep(CombineOp.PLUS));
         minusBtn.setOnAction(e -> addStep(CombineOp.MINUS));
-
-        clearBtn.setOnAction(e -> {
-            expr.clear();
-            refreshExprList();
-            clearResults();
-        });
+        clearBtn.setOnAction(e -> resetPane());
 
         resultBtn.setOnAction(e -> {
             if (expr.isEmpty()) {
@@ -61,29 +56,34 @@ public class VectorArithmeticPane {
             }
 
             int k = parseKOrDefault();
+
             if (onResultRequested != null) {
                 onResultRequested.accept(expr, k);
+            }
+        });
+
+        cosineBtn.setToggleGroup(metricGroup);
+        euclidBtn.setToggleGroup(metricGroup);
+        cosineBtn.setSelected(true);
+
+        metricGroup.selectedToggleProperty().addListener((obs, oldValue, newValue) -> {
+            if (newValue == null) {
+                return;
+            }
+
+            if (newValue == cosineBtn) {
+                fireMetricSelected(MetricType.COSINE);
+            } else {
+                fireMetricSelected(MetricType.EUCLIDEAN);
             }
         });
 
         HBox buildRow = new HBox(8, searchField, plusBtn, minusBtn);
         HBox.setHgrow(searchField, Priority.ALWAYS);
 
-        cosineBtn.setToggleGroup(metricGroup);
-        euclidBtn.setToggleGroup(metricGroup);
-        cosineBtn.setSelected(true);
-
-        metricGroup.selectedToggleProperty().addListener((obs, oldT, newT) -> {
-            if (newT == null) {
-                return;
-            }
-
-            if (newT == cosineBtn) {
-                fireMetricSelected(MetricType.COSINE);
-            } else if (newT == euclidBtn) {
-                fireMetricSelected(MetricType.EUCLIDEAN);
-            }
-        });
+        HBox actionRow = new HBox(8, new Label("K:"), kField, resultBtn, clearBtn);
+        actionRow.setStyle("-fx-alignment: center-left;");
+        kField.setPrefColumnCount(5);
 
         HBox metricRow = new HBox(10, new Label("Distance:"), cosineBtn, euclidBtn);
         metricRow.setStyle("-fx-alignment: center-left;");
@@ -91,21 +91,7 @@ public class VectorArithmeticPane {
         exprList.setPrefHeight(120);
         resultsList.setPrefHeight(220);
 
-        kField.setPrefColumnCount(5);
-        HBox actionsRow = new HBox(8, new Label("K:"), kField, resultBtn, clearBtn);
-        actionsRow.setStyle("-fx-alignment: center-left;");
-
-        root.getChildren().addAll(
-                title,
-                buildRow,
-                actionsRow,
-                new Label("Expression:"),
-                exprList,
-                metricRow,
-                new Separator(),
-                new Label("Results:"),
-                resultsList
-        );
+        root.getChildren().addAll(title, buildRow, actionRow, new Label("Expression:"), exprList, metricRow, new Separator(), new Label("Results:"), resultsList);
 
         root.setPadding(new Insets(10));
         root.setStyle("-fx-border-color: rgba(0,0,0,0.15); -fx-border-radius: 8; -fx-background-radius: 8;");
@@ -115,12 +101,12 @@ public class VectorArithmeticPane {
         return root;
     }
 
-    public void setOnMetricSelected(Consumer<MetricType> cb) {
-        this.onMetricSelected = cb;
+    public void setOnMetricSelected(Consumer<MetricType> handler) {
+        this.onMetricSelected = handler;
     }
 
-    public void setOnResultRequested(java.util.function.BiConsumer<VectorExpression, Integer> cb) {
-        this.onResultRequested = cb;
+    public void setOnResultRequested(BiConsumer<VectorExpression, Integer> handler) {
+        this.onResultRequested = handler;
     }
 
     public void setVisiblePane(boolean visible) {
@@ -147,12 +133,13 @@ public class VectorArithmeticPane {
 
     public void showResults(List<Neighbor> results) {
         if (results == null) {
-            results = List.of();
+            resultsList.getItems().clear();
+            return;
         }
 
         resultsList.getItems().setAll(
                 results.stream()
-                        .map(n -> n.getKey() + "  (" + fmt(n.getDistance()) + ")")
+                        .map(n -> n.getKey() + "  (" + formatDistance(n.getDistance()) + ")")
                         .collect(Collectors.toList())
         );
     }
@@ -161,43 +148,66 @@ public class VectorArithmeticPane {
         resultsList.getItems().clear();
     }
 
+    public void resetPane() {
+        searchField.clear();
+        expr.clear();
+        refreshExpressionList();
+        clearResults();
+        kField.setText("1");
+    }
+
     private void addStep(CombineOp op) {
-        String key = (searchField.getText() == null) ? "" : searchField.getText().trim();
+        String key = searchField.getText();
+
+        if (key == null) {
+            return;
+        }
+
+        key = key.trim();
+
         if (key.isBlank()) {
             return;
         }
 
         expr.add(op, key);
         searchField.clear();
-        refreshExprList();
+        refreshExpressionList();
     }
 
-    private void refreshExprList() {
+    private void refreshExpressionList() {
         exprList.getItems().setAll(
                 expr.getSteps().stream()
-                        .map(s -> (s.getOp() == CombineOp.PLUS ? "+ " : "- ") + s.getKey())
+                        .map(step -> {
+                            if (step.getOp() == CombineOp.PLUS) {
+                                return "+ " + step.getKey();
+                            } else {
+                                return "- " + step.getKey();
+                            }
+                        })
                         .collect(Collectors.toList())
         );
     }
 
     private int parseKOrDefault() {
         int k;
+
         try {
             k = Integer.parseInt(kField.getText().trim());
         } catch (Exception ex) {
-            k = 10;
-            kField.setText("10");
+            k = 1;
+            kField.setText("1");
         }
 
         if (k < 1) {
             k = 1;
             kField.setText("1");
         }
+
         return k;
     }
 
-    private static String fmt(double x) {
-        return String.format(java.util.Locale.ROOT, "%.4f", x);
+    private static String formatDistance(double value) {
+        return String.format(java.util.Locale.ROOT, "%.4f", value);
     }
 
     private void fireMetricSelected(MetricType type) {

@@ -1,6 +1,11 @@
 import javafx.geometry.Insets;
 import javafx.scene.Node;
-import javafx.scene.control.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
+import javafx.scene.control.RadioButton;
+import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -33,50 +38,34 @@ public class NeighborsPane {
     public NeighborsPane(Consumer<TextField> installAutocomplete) {
 
         selectedLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+        statusLabel.setStyle("-fx-font-size: 12px;");
+        errorLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #b00020;");
 
         searchField.setPromptText("Search item…");
-        HBox searchRow = new HBox(8, new Label("Search:"), searchField);
-        searchRow.setStyle("-fx-alignment: center-left;");
-        HBox.setHgrow(searchField, Priority.ALWAYS);
+        kField.setPrefColumnCount(5);
+        resultsList.setPrefHeight(320);
 
-        if (installAutocomplete != null) {
-            installAutocomplete.accept(searchField);
-        }
+        findBtn.setDisable(true);
 
         cosineBtn.setToggleGroup(metricGroup);
         euclideanBtn.setToggleGroup(metricGroup);
         cosineBtn.setSelected(true);
 
+        if (installAutocomplete != null) {
+            installAutocomplete.accept(searchField);
+        }
+
+        HBox searchRow = new HBox(8, new Label("Search:"), searchField);
+        searchRow.setStyle("-fx-alignment: center-left;");
+        HBox.setHgrow(searchField, Priority.ALWAYS);
+
         HBox metricRow = new HBox(10, new Label("Distance:"), cosineBtn, euclideanBtn);
         metricRow.setStyle("-fx-alignment: center-left;");
-
-        metricGroup.selectedToggleProperty().addListener((obs, oldT, newT) -> {
-            if (newT == null) return;
-            if (newT == cosineBtn) fireMetricSelected(MetricType.COSINE);
-            else if (newT == euclideanBtn) fireMetricSelected(MetricType.EUCLIDEAN);
-        });
-
-        kField.setPrefColumnCount(5);
-        findBtn.setDisable(true);
 
         HBox actionRow = new HBox(8, new Label("K:"), kField, findBtn);
         actionRow.setStyle("-fx-alignment: center-left;");
 
-        resultsList.setPrefHeight(320);
-
-        statusLabel.setStyle("-fx-font-size: 12px;");
-        errorLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #b00020;");
-
-        root.getChildren().addAll(
-                selectedLabel,
-                searchRow,
-                metricRow,
-                actionRow,
-                new Label("Nearest neighbors (key | distance):"),
-                resultsList,
-                statusLabel,
-                errorLabel
-        );
+        root.getChildren().addAll(selectedLabel, searchRow, metricRow, actionRow, new Label("Nearest neighbors (key | distance):"), resultsList, statusLabel, errorLabel);
 
         root.setPadding(new Insets(8));
         root.setStyle("-fx-border-color: rgba(0,0,0,0.15); -fx-border-radius: 8; -fx-background-radius: 8;");
@@ -85,8 +74,16 @@ public class NeighborsPane {
 
         searchField.setOnKeyPressed(e -> {
             if (e.getCode() == KeyCode.ENTER) {
-                String raw = (searchField.getText() == null) ? "" : searchField.getText().trim();
-                if (!raw.isBlank()) fireSearchPicked(raw);
+                String text = searchField.getText();
+
+                if (text != null) {
+                    text = text.trim();
+
+                    if (!text.isBlank()) {
+                        fireSearchPicked(text);
+                    }
+                }
+
                 e.consume();
             }
         });
@@ -95,6 +92,18 @@ public class NeighborsPane {
             if (e.getCode() == KeyCode.ENTER) {
                 requestFindNeighbors();
                 e.consume();
+            }
+        });
+
+        metricGroup.selectedToggleProperty().addListener((obs, oldValue, newValue) -> {
+            if (newValue == null) {
+                return;
+            }
+
+            if (newValue == cosineBtn) {
+                fireMetricSelected(MetricType.COSINE);
+            } else {
+                fireMetricSelected(MetricType.EUCLIDEAN);
             }
         });
     }
@@ -115,14 +124,15 @@ public class NeighborsPane {
         this.onMetricSelected = handler;
     }
 
-    public void setSelectedWord(String selectedKey) {
-        if (selectedKey == null || selectedKey.isBlank()) {
+    public void setSelectedWord(String key) {
+        if (key == null || key.isBlank()) {
             selectedLabel.setText("Selected: (none)");
             findBtn.setDisable(true);
-        } else {
-            selectedLabel.setText("Selected: " + selectedKey);
-            findBtn.setDisable(false);
+            return;
         }
+
+        selectedLabel.setText("Selected: " + key);
+        findBtn.setDisable(false);
     }
 
     public void setMetric(DistanceStrategy metric) {
@@ -141,15 +151,24 @@ public class NeighborsPane {
             return;
         }
 
-        for (Neighbor n : results) {
-            resultsList.getItems().add(
-                    n.getKey() + "  |  " + String.format(java.util.Locale.ROOT, "%.6f", n.getDistance())
-            );
+        for (Neighbor neighbor : results) {
+            String line = neighbor.getKey() + "  |  " +
+                    String.format(java.util.Locale.ROOT, "%.6f", neighbor.getDistance());
+            resultsList.getItems().add(line);
         }
     }
 
     public void clearResults() {
         resultsList.getItems().clear();
+    }
+
+    public void resetPane() {
+        searchField.clear();
+        kField.setText("10");
+        clearResults();
+        setError("");
+        setStatus("");
+        setSelectedWord("");
     }
 
     public void setStatus(String message) {
@@ -161,7 +180,9 @@ public class NeighborsPane {
     }
 
     private void requestFindNeighbors() {
-        if (onFindNeighborsRequested == null) return;
+        if (onFindNeighborsRequested == null) {
+            return;
+        }
 
         int k = parseKOrDefault();
         onFindNeighborsRequested.accept(k);
@@ -169,16 +190,19 @@ public class NeighborsPane {
 
     private int parseKOrDefault() {
         int k;
+
         try {
             k = Integer.parseInt(kField.getText().trim());
         } catch (Exception ex) {
             k = 10;
             kField.setText("10");
         }
+
         if (k < 1) {
             k = 1;
             kField.setText("1");
         }
+
         return k;
     }
 

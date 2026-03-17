@@ -1,6 +1,10 @@
 import javafx.geometry.Insets;
 import javafx.scene.Node;
-import javafx.scene.control.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
+import javafx.scene.control.Separator;
+import javafx.scene.control.TextField;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -13,15 +17,12 @@ public class CustomProjectionPane {
 
     private final VBox root = new VBox(10);
 
-    private final Label title = new Label("Custom Projection");
+    private final Label titleLabel = new Label("Custom Projection");
 
-    private final Label aLabel = new Label("A:");
     private final TextField aField = new TextField();
-
-    private final Label bLabel = new Label("B:");
     private final TextField bField = new TextField();
-
     private final TextField kField = new TextField("10");
+
     private final Button projectBtn = new Button("Project");
 
     private final ListView<String> aList = new ListView<>();
@@ -32,48 +33,76 @@ public class CustomProjectionPane {
 
     private TriConsumer<String, String, Integer> onProjectRequested;
 
-    private enum TargetField { A, B }
+    private enum TargetField {
+        A, B
+    }
+
     private TargetField activeTarget = TargetField.A;
 
     public CustomProjectionPane(Consumer<TextField> installAutocomplete) {
 
-        title.setStyle("-fx-font-size: 14; -fx-font-weight: bold;");
+        titleLabel.setStyle("-fx-font-size: 14; -fx-font-weight: bold;");
+        statusLabel.setStyle("-fx-font-size: 12px;");
+        errorLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #b00020;");
 
         aField.setPromptText("word A…");
         bField.setPromptText("word B…");
+        kField.setPrefColumnCount(5);
 
         if (installAutocomplete != null) {
             installAutocomplete.accept(aField);
             installAutocomplete.accept(bField);
         }
 
-        aField.focusedProperty().addListener((obs, was, isNow) -> {
-            if (isNow) {
+        aField.focusedProperty().addListener((obs, oldValue, isNowFocused) -> {
+            if (isNowFocused) {
                 activeTarget = TargetField.A;
             }
         });
 
-        bField.focusedProperty().addListener((obs, was, isNow) -> {
-            if (isNow) {
+        bField.focusedProperty().addListener((obs, oldValue, isNowFocused) -> {
+            if (isNowFocused) {
                 activeTarget = TargetField.B;
             }
         });
 
-        aField.setPrefWidth(120);
-        bField.setPrefWidth(120);
+        aField.textProperty().addListener((obs, oldValue, newValue) -> updateButtonEnabled());
+        bField.textProperty().addListener((obs, oldValue, newValue) -> updateButtonEnabled());
 
-        HBox abRow = new HBox(
+        projectBtn.setOnAction(e -> fireProjectRequested());
+
+        aField.setOnKeyPressed(e -> {
+            if (e.getCode() == KeyCode.ENTER) {
+                fireProjectRequested();
+                e.consume();
+            }
+        });
+
+        bField.setOnKeyPressed(e -> {
+            if (e.getCode() == KeyCode.ENTER) {
+                fireProjectRequested();
+                e.consume();
+            }
+        });
+
+        kField.setOnKeyPressed(e -> {
+            if (e.getCode() == KeyCode.ENTER) {
+                fireProjectRequested();
+                e.consume();
+            }
+        });
+
+        aList.setPrefHeight(260);
+        bList.setPrefHeight(260);
+
+        HBox inputRow = new HBox(
                 8,
-                aLabel, aField,
+                new Label("A:"), aField,
                 new Label("→"),
-                bLabel, bField
+                new Label("B:"), bField
         );
-        abRow.setStyle("-fx-alignment: center-left;");
+        inputRow.setStyle("-fx-alignment: center-left;");
 
-        HBox.setHgrow(aField, Priority.NEVER);
-        HBox.setHgrow(bField, Priority.NEVER);
-
-        kField.setPrefColumnCount(5);
         HBox actionRow = new HBox(
                 8,
                 new Label("K:"),
@@ -82,24 +111,18 @@ public class CustomProjectionPane {
         );
         actionRow.setStyle("-fx-alignment: center-left;");
 
-        aList.setPrefHeight(260);
-        bList.setPrefHeight(260);
-
-        HBox lists = new HBox(
+        HBox listsRow = new HBox(
                 12,
-                box("Most A-like:", aList),
-                box("Most B-like:", bList)
+                buildListBox("Most A-like:", aList),
+                buildListBox("Most B-like:", bList)
         );
 
-        statusLabel.setStyle("-fx-font-size: 12px;");
-        errorLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #b00020;");
-
         root.getChildren().addAll(
-                title,
-                abRow,
+                titleLabel,
+                inputRow,
                 actionRow,
                 new Separator(),
-                lists,
+                listsRow,
                 statusLabel,
                 errorLabel
         );
@@ -107,41 +130,15 @@ public class CustomProjectionPane {
         root.setPadding(new Insets(10));
         root.setStyle("-fx-border-color: rgba(0,0,0,0.15); -fx-border-radius: 8; -fx-background-radius: 8;");
 
-        projectBtn.setOnAction(e -> requestProject());
-
-        aField.setOnKeyPressed(e -> {
-            if (e.getCode() == KeyCode.ENTER) {
-                requestProject();
-                e.consume();
-            }
-        });
-
-        bField.setOnKeyPressed(e -> {
-            if (e.getCode() == KeyCode.ENTER) {
-                requestProject();
-                e.consume();
-            }
-        });
-
-        kField.setOnKeyPressed(e -> {
-            if (e.getCode() == KeyCode.ENTER) {
-                requestProject();
-                e.consume();
-            }
-        });
-
         updateButtonEnabled();
-
-        aField.textProperty().addListener((o, ov, nv) -> updateButtonEnabled());
-        bField.textProperty().addListener((o, ov, nv) -> updateButtonEnabled());
     }
 
     public Node getNode() {
         return root;
     }
 
-    public void setOnProjectRequested(TriConsumer<String, String, Integer> cb) {
-        this.onProjectRequested = cb;
+    public void setOnProjectRequested(TriConsumer<String, String, Integer> handler) {
+        this.onProjectRequested = handler;
     }
 
     public void setVisiblePane(boolean visible) {
@@ -165,40 +162,61 @@ public class CustomProjectionPane {
         updateButtonEnabled();
     }
 
-    public void showResult(CustomProjectionResult res) {
-        if (res == null) {
-            title.setText("Custom Projection");
+    public void showResult(CustomProjectionResult result) {
+        if (result == null) {
+            titleLabel.setText("Custom Projection");
             aList.getItems().setAll("(no results)");
             bList.getItems().setAll("(no results)");
             return;
         }
 
-        title.setText("Custom Projection (" + res.getA() + " → " + res.getB() + ")");
-        aList.getItems().setAll(formatItems(res.getTopA()));
-        bList.getItems().setAll(formatItems(res.getTopB()));
+        titleLabel.setText("Custom Projection (" + result.getA() + " → " + result.getB() + ")");
+        aList.getItems().setAll(formatItems(result.getTopA()));
+        bList.getItems().setAll(formatItems(result.getTopB()));
     }
 
     public void clearResult() {
-        title.setText("Custom Projection");
+        titleLabel.setText("Custom Projection");
         aList.getItems().clear();
         bList.getItems().clear();
     }
 
-    public void setStatus(String msg) {
-        statusLabel.setText(msg == null ? "" : msg);
+    public void resetPane() {
+        aField.clear();
+        bField.clear();
+        kField.setText("10");
+        clearResult();
+        setStatus("");
+        setError("");
+        activeTarget = TargetField.A;
+        updateButtonEnabled();
     }
 
-    public void setError(String msg) {
-        errorLabel.setText(msg == null ? "" : msg);
+    public void setStatus(String message) {
+        statusLabel.setText(message == null ? "" : message);
     }
 
-    private void requestProject() {
+    public void setError(String message) {
+        errorLabel.setText(message == null ? "" : message);
+    }
+
+    private void fireProjectRequested() {
         if (onProjectRequested == null) {
             return;
         }
 
-        String a = aField.getText() == null ? "" : aField.getText().trim();
-        String b = bField.getText() == null ? "" : bField.getText().trim();
+        String a = aField.getText();
+        String b = bField.getText();
+
+        if (a == null) {
+            a = "";
+        }
+        if (b == null) {
+            b = "";
+        }
+
+        a = a.trim();
+        b = b.trim();
 
         if (a.isBlank() || b.isBlank()) {
             return;
@@ -227,16 +245,27 @@ public class CustomProjectionPane {
     }
 
     private void updateButtonEnabled() {
-        String a = aField.getText() == null ? "" : aField.getText().trim();
-        String b = bField.getText() == null ? "" : bField.getText().trim();
+        String a = aField.getText();
+        String b = bField.getText();
+
+        if (a == null) {
+            a = "";
+        }
+        if (b == null) {
+            b = "";
+        }
+
+        a = a.trim();
+        b = b.trim();
+
         projectBtn.setDisable(a.isBlank() || b.isBlank());
     }
 
-    private VBox box(String label, ListView<String> list) {
-        Label l = new Label(label);
-        VBox v = new VBox(6, l, list);
-        VBox.setVgrow(list, Priority.ALWAYS);
-        return v;
+    private VBox buildListBox(String labelText, ListView<String> listView) {
+        Label label = new Label(labelText);
+        VBox box = new VBox(6, label, listView);
+        VBox.setVgrow(listView, Priority.ALWAYS);
+        return box;
     }
 
     private List<String> formatItems(List<CustomProjectionItem> items) {
@@ -245,8 +274,8 @@ public class CustomProjectionPane {
         }
 
         return items.stream()
-                .map(it -> it.getKey() + "  |  " +
-                        String.format(java.util.Locale.ROOT, "%.6f", it.getScore()))
+                .map(item -> item.getKey() + "  |  " +
+                        String.format(java.util.Locale.ROOT, "%.6f", item.getScore()))
                 .toList();
     }
 

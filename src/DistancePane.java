@@ -1,6 +1,9 @@
 import javafx.geometry.Insets;
 import javafx.scene.Node;
-import javafx.scene.control.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -18,11 +21,11 @@ public class DistancePane {
     private final ComboBox<MetricType> metricBox = new ComboBox<>();
     private final Button calcBtn = new Button("Calculate");
 
-    private final Label resultLabel = new Label();
-    private final Label errorLabel = new Label();
+    private final Label resultLabel = new Label("");
+    private final Label errorLabel = new Label("");
 
-    private BiConsumer<String, String> distanceHandler;
-    private Consumer<MetricType> metricHandler;
+    private BiConsumer<String, String> onDistanceRequested;
+    private Consumer<MetricType> onMetricSelected;
 
     public DistancePane(Consumer<TextField> installAutocomplete) {
 
@@ -37,42 +40,28 @@ public class DistancePane {
             installAutocomplete.accept(itemBField);
         }
 
-        HBox row1 = new HBox(8, new Label("Item A:"), itemAField);
-        HBox row2 = new HBox(8, new Label("Item B:"), itemBField);
-        HBox.setHgrow(itemAField, Priority.ALWAYS);
-        HBox.setHgrow(itemBField, Priority.ALWAYS);
-
         metricBox.getItems().addAll(MetricType.values());
-        metricBox.getSelectionModel().select(MetricType.COSINE);
-
-        HBox metricRow = new HBox(8, new Label("Metric:"), metricBox);
-
-        calcBtn.setOnAction(e -> {
-            if (distanceHandler != null) {
-                distanceHandler.accept(
-                        itemAField.getText(),
-                        itemBField.getText()
-                );
-            }
-        });
-
-        metricBox.setOnAction(e -> {
-            if (metricHandler != null) {
-                metricHandler.accept(metricBox.getValue());
-            }
-        });
+        metricBox.setValue(MetricType.COSINE);
 
         resultLabel.setStyle("-fx-font-weight: bold;");
         errorLabel.setStyle("-fx-text-fill: #b00020;");
 
-        root.getChildren().addAll(
-                row1,
-                row2,
-                metricRow,
-                calcBtn,
-                resultLabel,
-                errorLabel
-        );
+        HBox row1 = new HBox(8, new Label("Item A:"), itemAField);
+        HBox row2 = new HBox(8, new Label("Item B:"), itemBField);
+        HBox metricRow = new HBox(8, new Label("Metric:"), metricBox);
+
+        HBox.setHgrow(itemAField, Priority.ALWAYS);
+        HBox.setHgrow(itemBField, Priority.ALWAYS);
+
+        root.getChildren().addAll(row1, row2, metricRow, calcBtn, resultLabel, errorLabel);
+
+        calcBtn.setOnAction(e -> fireDistanceRequested());
+
+        metricBox.setOnAction(e -> {
+            if (onMetricSelected != null) {
+                onMetricSelected.accept(metricBox.getValue());
+            }
+        });
     }
 
     public Node getNode() {
@@ -80,11 +69,11 @@ public class DistancePane {
     }
 
     public void setOnDistanceRequested(BiConsumer<String, String> handler) {
-        this.distanceHandler = handler;
+        this.onDistanceRequested = handler;
     }
 
     public void setOnMetricSelected(Consumer<MetricType> handler) {
-        this.metricHandler = handler;
+        this.onMetricSelected = handler;
     }
 
     public void setVisiblePane(boolean visible) {
@@ -99,12 +88,16 @@ public class DistancePane {
 
         if (itemAField.getText().isBlank()) {
             itemAField.setText(key);
-        } else if (itemBField.getText().isBlank()) {
-            itemBField.setText(key);
-        } else {
-            itemAField.setText(key);
-            itemBField.clear();
+            return;
         }
+
+        if (itemBField.getText().isBlank()) {
+            itemBField.setText(key);
+            return;
+        }
+
+        itemAField.setText(key);
+        itemBField.clear();
     }
 
     public void setMetric(DistanceStrategy metric) {
@@ -115,15 +108,35 @@ public class DistancePane {
         }
     }
 
-    public void showDistance(double dist) {
-        resultLabel.setText("Distance = " + String.format(java.util.Locale.ROOT, "%.6f", dist));
+    public void showDistance(double distance) {
+        resultLabel.setText(
+                "Distance = " + String.format(java.util.Locale.ROOT, "%.6f", distance)
+        );
     }
 
     public void clearResult() {
         resultLabel.setText("");
     }
 
+    public void resetPane() {
+        itemAField.clear();
+        itemBField.clear();
+        clearResult();
+        setError("");
+    }
+
     public void setError(String message) {
         errorLabel.setText(message == null ? "" : message);
+    }
+
+    private void fireDistanceRequested() {
+        if (onDistanceRequested == null) {
+            return;
+        }
+
+        onDistanceRequested.accept(
+                itemAField.getText(),
+                itemBField.getText()
+        );
     }
 }

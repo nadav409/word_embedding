@@ -69,7 +69,7 @@ public class AppPresenter {
         }
 
         resetSelection();
-        cleanAllOperations();
+        resetAllOperations();
         cleanPlot();
 
         DistanceStrategy metric = controller.getDistanceStrategy();
@@ -282,12 +282,12 @@ public class AppPresenter {
         vectorArithmeticPane.clearResults();
     }
 
-    private void cleanAllOperations() {
-        cleanNeighbors();
-        cleanDistance();
-        cleanGrouping();
-        cleanProjection();
-        cleanVectorArithmetic();
+    private void resetAllOperations() {
+        neighborsPane.resetPane();
+        distancePane.resetPane();
+        groupingPane.resetPane();
+        projectionPane.resetPane();
+        vectorArithmeticPane.resetPane();
     }
 
     private void cleanPlot() {
@@ -295,7 +295,7 @@ public class AppPresenter {
         plotPane.clearGroupHighlights();
     }
 
-    private Set<String> buildNeighborKeySet(List<Neighbor> neighbors, Set<String> excluded) {
+    private Set<String> buildNeighborKeySet(List<Neighbor> neighbors, Set<String> NotToHighlight) {
         Set<String> result = new LinkedHashSet<>();
 
         if (neighbors == null) {
@@ -312,7 +312,7 @@ public class AppPresenter {
                 continue;
             }
 
-            if (excluded != null && excluded.contains(key)) {
+            if (NotToHighlight != null && NotToHighlight.contains(key)) {
                 continue;
             }
 
