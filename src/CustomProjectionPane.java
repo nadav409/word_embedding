@@ -11,6 +11,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public class CustomProjectionPane {
@@ -21,17 +22,15 @@ public class CustomProjectionPane {
 
     private final TextField aField = new TextField();
     private final TextField bField = new TextField();
-    private final TextField kField = new TextField("10");
 
     private final Button projectBtn = new Button("Project");
 
-    private final ListView<String> aList = new ListView<>();
-    private final ListView<String> bList = new ListView<>();
+    private final ListView<String> resultsList = new ListView<>();
 
     private final Label statusLabel = new Label("");
     private final Label errorLabel = new Label("");
 
-    private TriConsumer<String, String, Integer> onProjectRequested;
+    private BiConsumer<String, String> onProjectRequested;
 
     private enum TargetField {
         A, B
@@ -45,9 +44,8 @@ public class CustomProjectionPane {
         statusLabel.setStyle("-fx-font-size: 12px;");
         errorLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #b00020;");
 
-        aField.setPromptText("word A…");
-        bField.setPromptText("word B…");
-        kField.setPrefColumnCount(5);
+        aField.setPromptText("word A...");
+        bField.setPromptText("word B...");
 
         if (installAutocomplete != null) {
             installAutocomplete.accept(aField);
@@ -70,6 +68,8 @@ public class CustomProjectionPane {
         bField.textProperty().addListener((obs, oldValue, newValue) -> updateButtonEnabled());
 
         projectBtn.setOnAction(e -> fireProjectRequested());
+        projectBtn.setPrefWidth(90);
+        projectBtn.setMinWidth(90);
 
         aField.setOnKeyPressed(e -> {
             if (e.getCode() == KeyCode.ENTER) {
@@ -85,44 +85,26 @@ public class CustomProjectionPane {
             }
         });
 
-        kField.setOnKeyPressed(e -> {
-            if (e.getCode() == KeyCode.ENTER) {
-                fireProjectRequested();
-                e.consume();
-            }
-        });
-
-        aList.setPrefHeight(260);
-        bList.setPrefHeight(260);
+        resultsList.setPrefHeight(400);
 
         HBox inputRow = new HBox(
                 8,
                 new Label("A:"), aField,
                 new Label("→"),
-                new Label("B:"), bField
+                new Label("B:"), bField,
+                projectBtn
         );
         inputRow.setStyle("-fx-alignment: center-left;");
 
-        HBox actionRow = new HBox(
-                8,
-                new Label("K:"),
-                kField,
-                projectBtn
-        );
-        actionRow.setStyle("-fx-alignment: center-left;");
-
-        HBox listsRow = new HBox(
-                12,
-                buildListBox("Most A-like:", aList),
-                buildListBox("Most B-like:", bList)
-        );
+        HBox.setHgrow(aField, Priority.ALWAYS);
+        HBox.setHgrow(bField, Priority.ALWAYS);
 
         root.getChildren().addAll(
                 titleLabel,
                 inputRow,
-                actionRow,
                 new Separator(),
-                listsRow,
+                new Label("Projection on axis:"),
+                resultsList,
                 statusLabel,
                 errorLabel
         );
@@ -137,7 +119,7 @@ public class CustomProjectionPane {
         return root;
     }
 
-    public void setOnProjectRequested(TriConsumer<String, String, Integer> handler) {
+    public void setOnProjectRequested(BiConsumer<String, String> handler) {
         this.onProjectRequested = handler;
     }
 
@@ -165,26 +147,22 @@ public class CustomProjectionPane {
     public void showResult(CustomProjectionResult result) {
         if (result == null) {
             titleLabel.setText("Custom Projection");
-            aList.getItems().setAll("(no results)");
-            bList.getItems().setAll("(no results)");
+            resultsList.getItems().setAll("(no results)");
             return;
         }
 
         titleLabel.setText("Custom Projection (" + result.getA() + " → " + result.getB() + ")");
-        aList.getItems().setAll(formatItems(result.getTopA()));
-        bList.getItems().setAll(formatItems(result.getTopB()));
+        resultsList.getItems().setAll(formatItems(result.getItems()));
     }
 
     public void clearResult() {
         titleLabel.setText("Custom Projection");
-        aList.getItems().clear();
-        bList.getItems().clear();
+        resultsList.getItems().clear();
     }
 
     public void resetPane() {
         aField.clear();
         bField.clear();
-        kField.setText("10");
         clearResult();
         setStatus("");
         setError("");
@@ -211,6 +189,7 @@ public class CustomProjectionPane {
         if (a == null) {
             a = "";
         }
+
         if (b == null) {
             b = "";
         }
@@ -222,26 +201,7 @@ public class CustomProjectionPane {
             return;
         }
 
-        int k = parseKOrDefault();
-        onProjectRequested.accept(a, b, k);
-    }
-
-    private int parseKOrDefault() {
-        int k;
-
-        try {
-            k = Integer.parseInt(kField.getText().trim());
-        } catch (Exception ex) {
-            k = 10;
-            kField.setText("10");
-        }
-
-        if (k < 1) {
-            k = 1;
-            kField.setText("1");
-        }
-
-        return k;
+        onProjectRequested.accept(a, b);
     }
 
     private void updateButtonEnabled() {
@@ -251,6 +211,7 @@ public class CustomProjectionPane {
         if (a == null) {
             a = "";
         }
+
         if (b == null) {
             b = "";
         }
@@ -259,13 +220,6 @@ public class CustomProjectionPane {
         b = b.trim();
 
         projectBtn.setDisable(a.isBlank() || b.isBlank());
-    }
-
-    private VBox buildListBox(String labelText, ListView<String> listView) {
-        Label label = new Label(labelText);
-        VBox box = new VBox(6, label, listView);
-        VBox.setVgrow(listView, Priority.ALWAYS);
-        return box;
     }
 
     private List<String> formatItems(List<CustomProjectionItem> items) {
@@ -277,10 +231,5 @@ public class CustomProjectionPane {
                 .map(item -> item.getKey() + "  |  " +
                         String.format(java.util.Locale.ROOT, "%.6f", item.getScore()))
                 .toList();
-    }
-
-    @FunctionalInterface
-    public interface TriConsumer<A, B, C> {
-        void accept(A a, B b, C c);
     }
 }

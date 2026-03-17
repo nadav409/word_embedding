@@ -156,13 +156,9 @@ public class AppPresenter {
         }
     }
 
-    public void onProjectionRequested(String a, String b, int k) {
+    public void onProjectionRequested(String a, String b) {
         if (a == null || a.isBlank() || b == null || b.isBlank()) {
             return;
-        }
-
-        if (k < 1) {
-            k = 1;
         }
 
         plotPane.clearNeighborHighlights();
@@ -172,7 +168,7 @@ public class AppPresenter {
         projectionPane.setStatus("Projecting...");
 
         try {
-            CustomProjectionResult result = controller.customProjection(a, b, k);
+            CustomProjectionResult result = controller.customProjection(a, b);
 
             projectionPane.showResult(result);
             plotPane.setNeighborHighlights(Set.of(a, b));
@@ -180,11 +176,13 @@ public class AppPresenter {
             projectionPane.setStatus("Done");
 
         } catch (UnknownWordException ex) {
-            cleanProjection();
+            projectionPane.clearResult();
+            projectionPane.setStatus("");
             projectionPane.setError("Unknown word: " + ex.getMessage());
 
         } catch (Exception ex) {
-            cleanProjection();
+            projectionPane.clearResult();
+            projectionPane.setStatus("");
             projectionPane.setError("Error: " + ex.getMessage());
         }
     }

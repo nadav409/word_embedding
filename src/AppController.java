@@ -39,8 +39,8 @@ public class AppController {
         return result.getNeighbors();
     }
 
-    public CustomProjectionResult customProjection(String a, String b, int k) {
-        CustomProjectionOperation op = new CustomProjectionOperation(provider, SpaceId.FULL, a, b, k);
+    public CustomProjectionResult customProjection(String a, String b) {
+        CustomProjectionOperation op = new CustomProjectionOperation(provider, SpaceId.FULL, a, b);
         return (CustomProjectionResult) op.execute();
     }
 

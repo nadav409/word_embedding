@@ -6,80 +6,72 @@ public class CustomProjectionOperation extends ResearchOperation {
 
     private final String a;
     private final String b;
-    private final int k;
 
-    // default: run on FULL space (recommended for semantic axes)
-    public CustomProjectionOperation(Provider provider, String a, String b, int k) {
-        this(provider, SpaceId.FULL, a, b, k);
+    public CustomProjectionOperation(Provider provider, String a, String b) {
+        this(provider, SpaceId.FULL, a, b);
     }
 
-    public CustomProjectionOperation(Provider provider, SpaceId spaceId, String a, String b, int k) {
+    public CustomProjectionOperation(Provider provider, SpaceId spaceId, String a, String b) {
         super(provider, spaceId);
 
-        if (a == null || a.isBlank()) throw new IllegalArgumentException("a cannot be null/blank");
-        if (b == null || b.isBlank()) throw new IllegalArgumentException("b cannot be null/blank");
-        if (a.equals(b)) throw new IllegalArgumentException("a and b must be different");
-        if (k <= 0) throw new IllegalArgumentException("k must be positive");
+        if (a == null || a.isBlank()) {
+            throw new IllegalArgumentException("a cannot be null or blank");
+        }
+
+        if (b == null || b.isBlank()) {
+            throw new IllegalArgumentException("b cannot be null or blank");
+        }
+
+        if (a.equals(b)) {
+            throw new IllegalArgumentException("a and b must be different");
+        }
 
         this.a = a;
         this.b = b;
-        this.k = k;
     }
 
     @Override
     protected OperationResult run(EmbeddingSpace space) {
 
-        Embedding ea = space.get(a);
-        if (ea == null) throw new UnknownWordException(a);
+        Embedding embeddingA = space.get(a);
+        if (embeddingA == null) {
+            throw new UnknownWordException(a);
+        }
 
-        Embedding eb = space.get(b);
-        if (eb == null) throw new UnknownWordException(b);
+        Embedding embeddingB = space.get(b);
+        if (embeddingB == null) {
+            throw new UnknownWordException(b);
+        }
 
-        Vector va = ea.getVector();
-        Vector vb = eb.getVector();
+        Vector vectorA = embeddingA.getVector();
+        Vector vectorB = embeddingB.getVector();
 
-        // axis = vb - va  (A -> B)
-        Vector axis = vb.sub(va);
+        Vector axis = vectorB.sub(vectorA);
         double axisNorm = axis.norm();
+
         if (axisNorm == 0) {
-            throw new IllegalArgumentException("Axis is zero (vectors identical?)");
+            throw new IllegalArgumentException("Axis is zero");
         }
 
-        List<CustomProjectionItem> scored = new ArrayList<>(space.size());
+        List<CustomProjectionItem> items = new ArrayList<>();
 
-        for (Embedding e : space.getAll()) {
-            String key = e.getKey();
-            if (key == null) continue;
+        for (Embedding embedding : space.getAll()) {
+            String key = embedding.getKey();
 
-            // usually we exclude endpoints
-            if (key.equals(a) || key.equals(b)) continue;
+            if (key == null || key.isBlank()) {
+                continue;
+            }
 
-            Vector v = e.getVector();
+            Vector vector = embedding.getVector();
 
-            // scalar projection score onto axis direction:
-            // score = dot(v, axis) / ||axis||
-            double score = v.dot(axis) / axisNorm;
+            // projection of (v - va) on the axis from A to B
+            double score = vector.sub(vectorA).dot(axis) / axisNorm;
 
-            scored.add(new CustomProjectionItem(key, score));
+            items.add(new CustomProjectionItem(key, score));
         }
 
-        // sort ascending: lowest = most A-like, highest = most B-like
-        scored.sort(Comparator.comparingDouble(CustomProjectionItem::getScore));
+        items.sort(Comparator.comparingDouble(CustomProjectionItem::getScore));
 
-        int n = scored.size();
-        int kk = Math.min(k, n);
-
-        List<CustomProjectionItem> topA = new ArrayList<>(kk);
-        for (int i = 0; i < kk; i++) {
-            topA.add(scored.get(i));
-        }
-
-        List<CustomProjectionItem> topB = new ArrayList<>(kk);
-        for (int i = 0; i < kk; i++) {
-            topB.add(scored.get(n - 1 - i));
-        }
-
-        return new CustomProjectionResult(a, b, kk, topA, topB);
+        return new CustomProjectionResult(a, b, items);
     }
 }
-

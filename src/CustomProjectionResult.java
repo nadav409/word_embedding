@@ -2,29 +2,26 @@ import java.util.List;
 
 public class CustomProjectionResult implements OperationResult {
 
-    private String a;
-    private String b;
-    private int k;
+    private final String a;
+    private final String b;
+    private final List<CustomProjectionItem> items;
 
-    private List<CustomProjectionItem> topA;
-    private List<CustomProjectionItem> topB;
+    public CustomProjectionResult(String a, String b, List<CustomProjectionItem> items) {
+        if (a == null || a.isBlank()) {
+            throw new IllegalArgumentException("a cannot be null or blank");
+        }
 
-    public CustomProjectionResult(String a, String b, int k, List<CustomProjectionItem> topA, List<CustomProjectionItem> topB) {
+        if (b == null || b.isBlank()) {
+            throw new IllegalArgumentException("b cannot be null or blank");
+        }
 
         this.a = a;
         this.b = b;
-        this.k = k;
 
-        if (topA == null) {
-            this.topA = List.of();
+        if (items == null) {
+            this.items = List.of();
         } else {
-            this.topA = topA;
-        }
-
-        if (topB == null) {
-            this.topB = List.of();
-        } else {
-            this.topB = topB;
+            this.items = items;
         }
     }
 
@@ -36,15 +33,7 @@ public class CustomProjectionResult implements OperationResult {
         return b;
     }
 
-    public int getK() {
-        return k;
-    }
-
-    public List<CustomProjectionItem> getTopA() {
-        return topA;
-    }
-
-    public List<CustomProjectionItem> getTopB() {
-        return topB;
+    public List<CustomProjectionItem> getItems() {
+        return items;
     }
 }
