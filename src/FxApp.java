@@ -38,7 +38,7 @@ public class FxApp extends Application {
     public void start(Stage stage) {
 
         try {
-            Provider provider = Bootstrap.buildProvider();
+            Provider provider = AppSetup.buildProvider();
             controller = new AppController(provider);
 
             allKeys = provider.getSpace(SpaceId.FULL)
