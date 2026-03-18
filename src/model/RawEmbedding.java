@@ -1,3 +1,5 @@
+package model;
+
 public class RawEmbedding {
 
     private final String key;
@@ -10,7 +12,7 @@ public class RawEmbedding {
         }
 
         if (values == null || values.length == 0) {
-            throw new IllegalArgumentException("Vector cannot be null or empty");
+            throw new IllegalArgumentException("model.Vector cannot be null or empty");
         }
 
         this.key = key;

@@ -7,6 +7,8 @@ import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import operations.DistanceStrategy;
+import operations.EuclideanDistance;
 
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;

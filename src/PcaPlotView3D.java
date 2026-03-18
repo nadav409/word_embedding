@@ -8,6 +8,7 @@ import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Translate;
 import javafx.geometry.Point2D;
 import javafx.scene.effect.Glow;
+import model.PlotPoint;
 
 import java.util.*;
 import java.util.function.Consumer;

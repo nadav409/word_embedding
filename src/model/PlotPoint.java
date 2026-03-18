@@ -1,3 +1,5 @@
+package model;
+
 public class PlotPoint {
 
     private final String key;

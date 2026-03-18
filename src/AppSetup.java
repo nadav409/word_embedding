@@ -1,3 +1,7 @@
+import model.*;
+import model.Vector;
+import operations.CosineDistance;
+
 import java.nio.file.Path;
 import java.util.*;
 
@@ -42,7 +46,7 @@ public class AppSetup {
             String key = r.getKey();
             double[] values = r.getValuesCopy();
 
-            Vector vector = new Vector(values);
+            model.Vector vector = new Vector(values);
             Embedding embedding = new WordEmbedding(key, vector);
 
             out.add(embedding);

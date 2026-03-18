@@ -1,3 +1,5 @@
+package model;
+
 public class Neighbor {
 
     private final String key;

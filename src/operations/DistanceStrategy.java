@@ -1,3 +1,7 @@
+package operations;
+
+import model.Vector;
+
 public interface DistanceStrategy {
     /**
      * Computes distance (or dissimilarity) between two vectors.

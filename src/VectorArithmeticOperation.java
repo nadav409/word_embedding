@@ -1,3 +1,8 @@
+import model.Embedding;
+import model.EmbeddingSpace;
+import model.Neighbor;
+import model.Vector;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;

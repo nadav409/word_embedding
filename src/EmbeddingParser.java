@@ -1,3 +1,6 @@
+import model.Embedding;
+import model.RawEmbedding;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;

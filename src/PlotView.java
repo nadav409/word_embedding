@@ -1,4 +1,5 @@
 import javafx.scene.Node;
+import model.PlotPoint;
 
 import java.util.List;
 import java.util.Set;

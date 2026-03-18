@@ -1,3 +1,5 @@
+package model;
+
 public abstract class Embedding {
 
     private final String key;

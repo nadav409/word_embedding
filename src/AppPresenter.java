@@ -1,3 +1,8 @@
+import model.Neighbor;
+import operations.CosineDistance;
+import operations.DistanceStrategy;
+import operations.EuclideanDistance;
+
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;

@@ -1,3 +1,5 @@
+import model.Neighbor;
+
 import java.util.List;
 
 public class SubspaceGroupingResult implements OperationResult {

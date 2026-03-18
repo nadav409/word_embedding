@@ -1,3 +1,6 @@
+import model.Embedding;
+import model.EmbeddingSpace;
+
 public class DistanceOperation extends ResearchOperation {
 
     private final String keyA;

@@ -1,3 +1,6 @@
+import model.EmbeddingSpace;
+import operations.DistanceStrategy;
+
 public abstract class ResearchOperation {
 
     protected Provider provider;

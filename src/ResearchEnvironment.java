@@ -1,3 +1,6 @@
+import model.EmbeddingSpace;
+import operations.DistanceStrategy;
+
 import java.util.HashMap;
 import java.util.Map;
 

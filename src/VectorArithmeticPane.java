@@ -4,6 +4,10 @@ import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import model.Neighbor;
+import operations.DistanceStrategy;
+import operations.EuclideanDistance;
+
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -35,7 +39,7 @@ public class VectorArithmeticPane {
 
     public VectorArithmeticPane(Consumer<TextField> autocompleteInstaller) {
 
-        Label title = new Label("Vector Arithmetic");
+        Label title = new Label("model.Vector Arithmetic");
         title.setStyle("-fx-font-size: 14; -fx-font-weight: bold;");
 
         searchField.setPromptText("Type a word…");

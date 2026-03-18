@@ -1,3 +1,7 @@
+import model.Embedding;
+import model.EmbeddingSpace;
+import model.Neighbor;
+
 import java.util.*;
 
 public class NearestNeighborsOperation extends ResearchOperation {

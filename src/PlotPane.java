@@ -1,11 +1,11 @@
 import javafx.scene.layout.StackPane;
 import javafx.scene.shape.Rectangle;
+import model.PlotPoint;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 public class PlotPane extends StackPane {
 
