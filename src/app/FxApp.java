@@ -12,6 +12,7 @@ import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import model.Embedding;
 import model.OperationType;
+import model.SpaceId;
 import ui.*;
 
 import java.util.List;

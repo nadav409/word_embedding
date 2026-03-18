@@ -1,7 +1,7 @@
 package controller;
 
 import app.Provider;
-import app.SpaceId;
+import model.SpaceId;
 import model.*;
 import operations.*;
 

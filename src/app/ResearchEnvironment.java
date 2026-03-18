@@ -1,6 +1,7 @@
 package app;
 
 import model.EmbeddingSpace;
+import model.SpaceId;
 import operations.DistanceStrategy;
 
 import java.util.HashMap;

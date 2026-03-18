@@ -1,7 +1,7 @@
 package operations;
 
 import app.Provider;
-import app.SpaceId;
+import model.SpaceId;
 import model.Embedding;
 import model.EmbeddingSpace;
 import model.Neighbor;
