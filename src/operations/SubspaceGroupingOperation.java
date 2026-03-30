@@ -36,7 +36,6 @@ public class SubspaceGroupingOperation extends ResearchOperation {
     @Override
     protected OperationResult run(EmbeddingSpace space) {
 
-        // ===== 1️⃣ Collect vectors =====
         List<Vector> vectors = new ArrayList<>();
 
         for (String key : keys) {
@@ -47,15 +46,15 @@ public class SubspaceGroupingOperation extends ResearchOperation {
             vectors.add(e.getVector());
         }
 
-        // ===== 2️⃣ Compute centroid =====
+
         Vector centroid = computeCentroid(vectors);
 
-        // ===== 3️⃣ Compute distances =====
+
         List<Neighbor> neighbors = new ArrayList<>();
 
         for (Embedding e : space.getAll()) {
 
-            // אם אתה לא רוצה שהקבוצה עצמה תופיע:
+
             if (keys.contains(e.getKey())) continue;
 
             double dist = metric().compute(centroid, e.getVector());
