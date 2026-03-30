@@ -1,7 +1,9 @@
 package app;
 
 import io.EmbeddingLoader;
+import io.EmbeddingParser;
 import io.JsonEmbeddingLoader;
+import io.WordEmbeddingParser;
 import model.*;
 import model.Vector;
 import operations.CosineDistance;
@@ -21,8 +23,10 @@ public class AppSetup {
         List<RawEmbedding> rawFull = fullLoader.load();
         List<RawEmbedding> rawPca  = pcaLoader.load();
 
-        EmbeddingSpace fullSpace = new EmbeddingSpace(toWordEmbeddings(rawFull));
-        EmbeddingSpace pcaSpace  = new EmbeddingSpace(toWordEmbeddings(rawPca));
+        EmbeddingParser parser = new WordEmbeddingParser();
+
+        EmbeddingSpace fullSpace = new EmbeddingSpace(parser.parseAll(rawFull));
+        EmbeddingSpace pcaSpace  = new EmbeddingSpace(parser.parseAll(rawPca));
 
         Map<SpaceId, EmbeddingSpace> spaces = new HashMap<>();
         spaces.put(SpaceId.FULL, fullSpace);
@@ -43,19 +47,5 @@ public class AppSetup {
         }
     }
 
-    private static List<Embedding> toWordEmbeddings(List<RawEmbedding> raw) {
-        List<Embedding> out = new ArrayList<>(raw.size());
 
-        for (RawEmbedding r : raw) {
-            String key = r.getKey();
-            double[] values = r.getValuesCopy();
-
-            model.Vector vector = new Vector(values);
-            Embedding embedding = new WordEmbedding(key, vector);
-
-            out.add(embedding);
-        }
-
-        return out;
-    }
 }

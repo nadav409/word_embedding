@@ -15,7 +15,6 @@ public class PlotPane extends StackPane {
     private String selectedKey;
     private Set<String> neighborKeys;
     private Set<String> groupKeys;
-
     private Consumer<String> itemClickHandler;
 
     public PlotPane(PlotView plot2D, PlotView plot3D) {
