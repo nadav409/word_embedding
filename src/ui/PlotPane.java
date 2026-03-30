@@ -1,9 +1,7 @@
 package ui;
-
 import javafx.scene.layout.StackPane;
 import javafx.scene.shape.Rectangle;
 import model.PlotPoint;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -11,19 +9,22 @@ import java.util.function.Consumer;
 
 public class PlotPane extends StackPane {
 
-    private final PlotView view2D;
-    private final PlotView view3D;
-    private PlotView activeView;
+    private final PlotView plot2D;
+    private final PlotView plot3D;
+    private PlotView currentPlot;
+    private String selectedKey;
+    private Set<String> neighborKeys;
+    private Set<String> groupKeys;
 
-    private String selectedKey = null;
-    private Set<String> resultKeys = Set.of();
-    private Set<String> groupKeys = Set.of();
+    private Consumer<String> itemClickHandler;
 
-    private Consumer<String> onItemClicked;
+    public PlotPane(PlotView plot2D, PlotView plot3D) {
+        this.plot2D = plot2D;
+        this.plot3D = plot3D;
 
-    public PlotPane(PlotView view2D, PlotView view3D) {
-        this.view2D = view2D;
-        this.view3D = view3D;
+        this.selectedKey = null;
+        this.neighborKeys = Set.of();
+        this.groupKeys = Set.of();
 
         Rectangle clip = new Rectangle();
         clip.widthProperty().bind(widthProperty());
@@ -35,93 +36,92 @@ public class PlotPane extends StackPane {
         setMode(false);
     }
 
-    public void setMode(boolean is3D) {
-        PlotView newView = is3D ? view3D : view2D;
-
-        if (activeView == newView) {
-            return;
+    public void setMode(boolean use3D) {
+        if (use3D) {
+            currentPlot = plot3D;
+        } else {
+            currentPlot = plot2D;
         }
 
-        activeView = newView;
-
         getChildren().clear();
-        getChildren().add(activeView.getNode());
+        getChildren().add(currentPlot.getNode());
 
-        activeView.setOnItemClicked(key -> {
-            if (onItemClicked != null) {
-                onItemClicked.accept(key);
+        currentPlot.setOnItemClicked(key -> {
+            if (itemClickHandler != null) {
+                itemClickHandler.accept(key);
             }
         });
 
-        refreshState();
+        updateViews();
     }
 
     public void setOnItemClicked(Consumer<String> handler) {
-        this.onItemClicked = handler;
+        this.itemClickHandler = handler;
     }
 
     public void setPoints(List<PlotPoint> points) {
-        view2D.setPoints(points);
-        view3D.setPoints(points);
-        refreshLabels();
+        plot2D.setPoints(points);
+        plot3D.setPoints(points);
+        updateLabels();
     }
 
-    // ===== direct calls from presenter =====
-
     public void setSelectedKey(String key) {
-        this.selectedKey = key;
-        refreshState();
+        selectedKey = key;
+        updateViews();
     }
 
     public void setNeighborHighlights(Set<String> keys) {
-        this.resultKeys = (keys == null) ? Set.of() : Set.copyOf(keys);
-        refreshState();
+        if (keys == null) {
+            neighborKeys = Set.of();
+        } else {
+            neighborKeys = Set.copyOf(keys);
+        }
+        updateViews();
     }
 
     public void clearNeighborHighlights() {
-        this.resultKeys = Set.of();
-        refreshState();
+        neighborKeys = Set.of();
+        updateViews();
     }
 
-
-
-
-
-    private void refreshState() {
-        view2D.setSelectedKey(selectedKey);
-        view3D.setSelectedKey(selectedKey);
-
-        view2D.setHighlights(resultKeys);
-        view3D.setHighlights(resultKeys);
-
-        view2D.setGroupHighlights(groupKeys);
-        view3D.setGroupHighlights(groupKeys);
-
-        refreshLabels();
+    public void setGroupHighlights(Set<String> keys) {
+        if (keys == null) {
+            groupKeys = Set.of();
+        } else {
+            groupKeys = Set.copyOf(keys);
+        }
+        updateViews();
     }
 
-    private void refreshLabels() {
+    public void clearGroupHighlights() {
+        groupKeys = Set.of();
+        updateViews();
+    }
+
+    private void updateViews() {
+        plot2D.setSelectedKey(selectedKey);
+        plot3D.setSelectedKey(selectedKey);
+
+        plot2D.setHighlights(neighborKeys);
+        plot3D.setHighlights(neighborKeys);
+
+        plot2D.setGroupHighlights(groupKeys);
+        plot3D.setGroupHighlights(groupKeys);
+
+        updateLabels();
+    }
+
+    private void updateLabels() {
         Set<String> labels = new HashSet<>();
 
         if (selectedKey != null && !selectedKey.isBlank()) {
             labels.add(selectedKey);
         }
 
+        labels.addAll(neighborKeys);
         labels.addAll(groupKeys);
-        labels.addAll(resultKeys);
 
-        view2D.setLabels(labels);
-        view3D.setLabels(labels);
+        plot2D.setLabels(labels);
+        plot3D.setLabels(labels);
     }
-
-    public void setGroupHighlights(Set<String> keys) {
-        this.groupKeys = (keys == null) ? Set.of() : Set.copyOf(keys);
-        refreshState();
-    }
-
-    public void clearGroupHighlights() {
-        this.groupKeys = Set.of();
-        refreshState();
-    }
-
 }
