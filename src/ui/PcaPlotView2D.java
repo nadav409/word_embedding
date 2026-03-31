@@ -1,29 +1,15 @@
 package ui;
 
-import javafx.scene.Node;
 import javafx.scene.Group;
 import javafx.scene.control.Label;
 import javafx.scene.effect.DropShadow;
-import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
 import model.PlotPoint;
 
-import java.util.*;
-import java.util.function.Consumer;
-
-public class PcaPlotView2D extends Pane implements PlotView {
-
-    private List<PlotPoint> points = List.of();
-    private String selectedKey = null;
-
-    private Set<String> highlighted = Set.of(); // neighbors
-    private Set<String> groupKeys = Set.of();   // groups
-    private Set<String> labels = Set.of();
-
-    private Consumer<String> clickCallback;
+public class PcaPlotView2D extends PlotView {
 
     private final Group world = new Group();
     private final Label hoverLabel;
@@ -37,7 +23,6 @@ public class PcaPlotView2D extends Pane implements PlotView {
         setPrefSize(900, 700);
         setStyle("-fx-background-color: #020617;");
 
-        // 🔒 prevent world from leaking outside bounds
         Rectangle clip = new Rectangle();
         clip.widthProperty().bind(widthProperty());
         clip.heightProperty().bind(heightProperty());
@@ -62,48 +47,13 @@ public class PcaPlotView2D extends Pane implements PlotView {
 
         enableMouseControl();
 
-        widthProperty().addListener((obs, a, b) -> redraw());
-        heightProperty().addListener((obs, a, b) -> redraw());
+        widthProperty().addListener((obs, oldValue, newValue) -> refreshView());
+        heightProperty().addListener((obs, oldValue, newValue) -> refreshView());
     }
 
     @Override
-    public Node getNode() {
-        return this;
-    }
-
-    @Override
-    public void setPoints(List<PlotPoint> pts) {
-        this.points = pts == null ? List.of() : List.copyOf(pts);
+    protected void refreshView() {
         redraw();
-    }
-
-    @Override
-    public void setSelectedKey(String key) {
-        this.selectedKey = key;
-        redraw();
-    }
-
-    @Override
-    public void setHighlights(Set<String> keys) {
-        this.highlighted = keys == null ? Set.of() : Set.copyOf(keys);
-        redraw();
-    }
-
-    @Override
-    public void setGroupHighlights(Set<String> keys) {
-        this.groupKeys = keys == null ? Set.of() : Set.copyOf(keys);
-        redraw();
-    }
-
-    @Override
-    public void setLabels(Set<String> keys) {
-        this.labels = keys == null ? Set.of() : Set.copyOf(keys);
-        redraw();
-    }
-
-    @Override
-    public void setOnItemClicked(Consumer<String> callback) {
-        this.clickCallback = callback;
     }
 
     private void redraw() {
@@ -112,10 +62,14 @@ public class PcaPlotView2D extends Pane implements PlotView {
         world.getChildren().add(hoverLabel);
         hoverLabel.setVisible(false);
 
-        if (points.isEmpty()) return;
+        if (points.isEmpty()) {
+            return;
+        }
 
-        double minX = Double.POSITIVE_INFINITY, maxX = Double.NEGATIVE_INFINITY;
-        double minY = Double.POSITIVE_INFINITY, maxY = Double.NEGATIVE_INFINITY;
+        double minX = Double.POSITIVE_INFINITY;
+        double maxX = Double.NEGATIVE_INFINITY;
+        double minY = Double.POSITIVE_INFINITY;
+        double maxY = Double.NEGATIVE_INFINITY;
 
         for (PlotPoint p : points) {
             minX = Math.min(minX, p.getX());
@@ -147,19 +101,16 @@ public class PcaPlotView2D extends Pane implements PlotView {
 
             if (isSelected) {
                 radius = 5;
-                fill = Color.web("#ff9d00");   // orange
-            }
-            else if (isNeighbor) {
+                fill = Color.web("#ff9d00");
+            } else if (isNeighbor) {
                 radius = 4.5;
-                fill = Color.web("#39ff14");   // neon green
-            }
-            else if (isGroup) {
+                fill = Color.web("#39ff14");
+            } else if (isGroup) {
                 radius = 4.5;
-                fill = Color.web("#b86cff");   // violet
-            }
-            else {
+                fill = Color.web("#b86cff");
+            } else {
                 radius = 3.2;
-                fill = Color.web("#3b82f6");   // clean blue
+                fill = Color.web("#3b82f6");
             }
 
             Circle dot = new Circle(cx, cy, radius);
@@ -167,9 +118,7 @@ public class PcaPlotView2D extends Pane implements PlotView {
 
             DropShadow glow = new DropShadow();
             glow.setColor(fill);
-            glow.setRadius(isSelected ? 16 :
-                    isNeighbor || isGroup ? 10 : 5);
-
+            glow.setRadius(isSelected ? 16 : (isNeighbor || isGroup ? 10 : 5));
             dot.setEffect(glow);
 
             Circle hit = new Circle(cx, cy, 12);
@@ -179,8 +128,9 @@ public class PcaPlotView2D extends Pane implements PlotView {
             hit.setOnMouseExited(e -> hoverLabel.setVisible(false));
 
             hit.setOnMouseClicked(e -> {
-                if (clickCallback != null && key != null)
+                if (clickCallback != null && key != null) {
                     clickCallback.accept(key);
+                }
             });
 
             world.getChildren().addAll(dot, hit);
@@ -200,8 +150,9 @@ public class PcaPlotView2D extends Pane implements PlotView {
     }
 
     private void showHoverLabel(double x, double y, String text) {
-
-        if (text == null) return;
+        if (text == null) {
+            return;
+        }
 
         hoverLabel.setText(text);
         hoverLabel.setLayoutX(x + 8);
@@ -213,13 +164,13 @@ public class PcaPlotView2D extends Pane implements PlotView {
     private void enableMouseControl() {
 
         setOnScroll(event -> {
-
             double zoomFactor = 1.08;
-            if (event.getDeltaY() < 0) zoomFactor = 1 / zoomFactor;
+
+            if (event.getDeltaY() < 0) {
+                zoomFactor = 1 / zoomFactor;
+            }
 
             scale *= zoomFactor;
-
-            // limit zoom
             scale = Math.max(0.3, Math.min(5.0, scale));
 
             world.setScaleX(scale);
@@ -234,16 +185,13 @@ public class PcaPlotView2D extends Pane implements PlotView {
         });
 
         setOnMouseDragged(event -> {
-
             double deltaX = event.getSceneX() - anchorX;
             double deltaY = event.getSceneY() - anchorY;
 
             double newX = world.getTranslateX() + deltaX;
             double newY = world.getTranslateY() + deltaY;
 
-            // limit drag
             double maxTranslate = 2000;
-
             newX = Math.max(-maxTranslate, Math.min(maxTranslate, newX));
             newY = Math.max(-maxTranslate, Math.min(maxTranslate, newY));
 

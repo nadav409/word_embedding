@@ -1,26 +1,30 @@
 package ui;
+
 import javafx.scene.layout.StackPane;
 import javafx.scene.shape.Rectangle;
 import model.PlotPoint;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 
 public class PlotPane extends StackPane {
-
     private final PlotView plot2D;
     private final PlotView plot3D;
     private PlotView currentPlot;
+    private List<PlotPoint> currentPoints;
     private String selectedKey;
     private Set<String> neighborKeys;
     private Set<String> groupKeys;
+
     private Consumer<String> itemClickHandler;
 
     public PlotPane(PlotView plot2D, PlotView plot3D) {
         this.plot2D = plot2D;
         this.plot3D = plot3D;
 
+        this.currentPoints = List.of();
         this.selectedKey = null;
         this.neighborKeys = Set.of();
         this.groupKeys = Set.of();
@@ -43,7 +47,7 @@ public class PlotPane extends StackPane {
         }
 
         getChildren().clear();
-        getChildren().add(currentPlot.getNode());
+        getChildren().add(currentPlot);
 
         currentPlot.setOnItemClicked(key -> {
             if (itemClickHandler != null) {
@@ -51,7 +55,7 @@ public class PlotPane extends StackPane {
             }
         });
 
-        updateViews();
+        updateCurrentPlot();
     }
 
     public void setOnItemClicked(Consumer<String> handler) {
@@ -59,58 +63,62 @@ public class PlotPane extends StackPane {
     }
 
     public void setPoints(List<PlotPoint> points) {
-        plot2D.setPoints(points);
-        plot3D.setPoints(points);
-        updateLabels();
+        if (points == null) {
+            this.currentPoints = List.of();
+        } else {
+            this.currentPoints = List.copyOf(points);
+        }
+        updateCurrentPlot();
     }
 
     public void setSelectedKey(String key) {
-        selectedKey = key;
-        updateViews();
+        this.selectedKey = key;
+        updateCurrentPlot();
     }
 
     public void setNeighborHighlights(Set<String> keys) {
         if (keys == null) {
-            neighborKeys = Set.of();
+            this.neighborKeys = Set.of();
         } else {
-            neighborKeys = Set.copyOf(keys);
+            this.neighborKeys = Set.copyOf(keys);
         }
-        updateViews();
+
+        updateCurrentPlot();
     }
 
     public void clearNeighborHighlights() {
-        neighborKeys = Set.of();
-        updateViews();
+        this.neighborKeys = Set.of();
+        updateCurrentPlot();
     }
 
     public void setGroupHighlights(Set<String> keys) {
         if (keys == null) {
-            groupKeys = Set.of();
+            this.groupKeys = Set.of();
         } else {
-            groupKeys = Set.copyOf(keys);
+            this.groupKeys = Set.copyOf(keys);
         }
-        updateViews();
+
+        updateCurrentPlot();
     }
 
     public void clearGroupHighlights() {
-        groupKeys = Set.of();
-        updateViews();
+        this.groupKeys = Set.of();
+        updateCurrentPlot();
     }
 
-    private void updateViews() {
-        plot2D.setSelectedKey(selectedKey);
-        plot3D.setSelectedKey(selectedKey);
+    private void updateCurrentPlot() {
+        if (currentPlot == null) {
+            return;
+        }
 
-        plot2D.setHighlights(neighborKeys);
-        plot3D.setHighlights(neighborKeys);
-
-        plot2D.setGroupHighlights(groupKeys);
-        plot3D.setGroupHighlights(groupKeys);
-
-        updateLabels();
+        currentPlot.setPoints(currentPoints);
+        currentPlot.setSelectedKey(selectedKey);
+        currentPlot.setHighlights(neighborKeys);
+        currentPlot.setGroupHighlights(groupKeys);
+        currentPlot.setLabels(buildLabels());
     }
 
-    private void updateLabels() {
+    private Set<String> buildLabels() {
         Set<String> labels = new HashSet<>();
 
         if (selectedKey != null && !selectedKey.isBlank()) {
@@ -120,7 +128,6 @@ public class PlotPane extends StackPane {
         labels.addAll(neighborKeys);
         labels.addAll(groupKeys);
 
-        plot2D.setLabels(labels);
-        plot3D.setLabels(labels);
+        return labels;
     }
 }

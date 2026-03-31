@@ -1,27 +1,49 @@
 package ui;
 
-import javafx.scene.Node;
+import javafx.scene.layout.Pane;
 import model.PlotPoint;
 
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 
-public interface PlotView {
+public abstract class PlotView extends Pane {
 
-    Node getNode();
+    protected List<PlotPoint> points = List.of();
+    protected String selectedKey = null;
+    protected Set<String> highlighted = Set.of();
+    protected Set<String> groupKeys = Set.of();
+    protected Set<String> labels = Set.of();
+    protected Consumer<String> clickCallback;
 
-    void setPoints(List<PlotPoint> points);
+    public void setPoints(List<PlotPoint> pts) {
+        this.points = (pts == null) ? List.of() : List.copyOf(pts);
+        refreshView();
+    }
 
-    void setSelectedKey(String key);
+    public void setSelectedKey(String key) {
+        this.selectedKey = key;
+        refreshView();
+    }
 
+    public void setHighlights(Set<String> keys) {
+        this.highlighted = (keys == null) ? Set.of() : Set.copyOf(keys);
+        refreshView();
+    }
 
-    void setHighlights(Set<String> keys);
+    public void setGroupHighlights(Set<String> keys) {
+        this.groupKeys = (keys == null) ? Set.of() : Set.copyOf(keys);
+        refreshView();
+    }
 
+    public void setLabels(Set<String> keys) {
+        this.labels = (keys == null) ? Set.of() : Set.copyOf(keys);
+        refreshView();
+    }
 
-    void setGroupHighlights(Set<String> keys);
+    public void setOnItemClicked(Consumer<String> handler) {
+        this.clickCallback = handler;
+    }
 
-    void setLabels(Set<String> keys);
-
-    void setOnItemClicked(Consumer<String> handler);
+    protected abstract void refreshView();
 }
