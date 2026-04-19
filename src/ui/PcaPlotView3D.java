@@ -18,7 +18,9 @@ import javafx.scene.transform.Translate;
 import model.PlotPoint;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 public class PcaPlotView3D extends PlotView {
 
@@ -33,7 +35,8 @@ public class PcaPlotView3D extends PlotView {
     private final Pane overlay = new Pane();
     private final Label hoverTooltip = new Label();
 
-    private final Map<Label, Sphere> tagMap = new HashMap<>();
+    private final Map<String, Sphere> spheresByKey = new HashMap<>();
+    private final Map<String, Label> labelsByKey = new HashMap<>();
 
     private double anchorX;
     private double anchorY;
@@ -77,8 +80,15 @@ public class PcaPlotView3D extends PlotView {
     }
 
     @Override
-    protected void refreshView() {
-        buildScene();
+    protected void refreshView(boolean pointsChanged, boolean styleChanged) {
+        if (pointsChanged) {
+            buildScene();
+            return;
+        }
+
+        if (styleChanged) {
+            updateVisualState();
+        }
     }
 
     private void buildScene() {
@@ -86,8 +96,10 @@ public class PcaPlotView3D extends PlotView {
         world.getChildren().removeIf(node -> node instanceof Sphere);
         overlay.getChildren().clear();
         overlay.getChildren().add(hoverTooltip);
-        tagMap.clear();
         hoverTooltip.setVisible(false);
+
+        spheresByKey.clear();
+        labelsByKey.clear();
 
         if (points.isEmpty()) {
             return;
@@ -149,16 +161,106 @@ public class PcaPlotView3D extends PlotView {
             sphere.setOnMouseEntered(e -> showHover(sphere, key));
             sphere.setOnMouseExited(e -> hoverTooltip.setVisible(false));
 
-            if (key != null && labels.contains(key)) {
-                Label tag = createTag(key);
-                overlay.getChildren().add(tag);
-                tagMap.put(tag, sphere);
+            if (key != null) {
+                spheresByKey.put(key, sphere);
+                if (labels.contains(key)) {
+                    addLabelForKey(key, sphere);
+                }
             }
 
             world.getChildren().add(sphere);
         }
 
         updateAllTagPositions();
+    }
+
+    private void updateVisualState() {
+        for (Map.Entry<String, Sphere> entry : spheresByKey.entrySet()) {
+            applySphereStyle(entry.getValue(), entry.getKey());
+        }
+
+        syncLabels();
+        updateAllTagPositions();
+    }
+
+    private void applySphereStyle(Sphere sphere, String key) {
+        if (sphere == null || key == null) {
+            return;
+        }
+
+        boolean isSelected = key.equals(selectedKey);
+        boolean isHighlighted = highlighted.contains(key);
+        boolean isGroup = groupKeys.contains(key);
+
+        sphere.setRadius(isSelected ? 6 : (isHighlighted || isGroup ? 5 : 3));
+
+        PhongMaterial material;
+        if (sphere.getMaterial() instanceof PhongMaterial) {
+            material = (PhongMaterial) sphere.getMaterial();
+        } else {
+            material = new PhongMaterial();
+            sphere.setMaterial(material);
+        }
+
+        Glow glow;
+        if (sphere.getEffect() instanceof Glow) {
+            glow = (Glow) sphere.getEffect();
+        } else {
+            glow = new Glow();
+            sphere.setEffect(glow);
+        }
+
+        if (isSelected) {
+            material.setDiffuseColor(Color.web("#ff9800"));
+            material.setSpecularColor(Color.WHITE);
+            material.setSpecularPower(64);
+            glow.setLevel(0.9);
+        } else if (isHighlighted) {
+            material.setDiffuseColor(Color.web("#39ff14"));
+            material.setSpecularColor(Color.web("#ccffcc"));
+            material.setSpecularPower(48);
+            glow.setLevel(0.85);
+        } else if (isGroup) {
+            material.setDiffuseColor(Color.web("#b86cff"));
+            material.setSpecularColor(Color.WHITE);
+            material.setSpecularPower(64);
+            glow.setLevel(0.9);
+        } else {
+            material.setDiffuseColor(Color.web("#3d7bff"));
+            material.setSpecularColor(Color.web("#99ccff"));
+            material.setSpecularPower(32);
+            glow.setLevel(0.2);
+        }
+    }
+
+    private void syncLabels() {
+        Set<String> toRemove = new HashSet<>(labelsByKey.keySet());
+        toRemove.removeAll(labels);
+
+        for (String key : toRemove) {
+            Label tag = labelsByKey.remove(key);
+            if (tag != null) {
+                overlay.getChildren().remove(tag);
+            }
+        }
+
+        for (String key : labels) {
+            if (labelsByKey.containsKey(key)) {
+                continue;
+            }
+
+            Sphere sphere = spheresByKey.get(key);
+            if (sphere != null) {
+                addLabelForKey(key, sphere);
+            }
+        }
+    }
+
+    private void addLabelForKey(String key, Sphere sphere) {
+        Label tag = createTag(key);
+        labelsByKey.put(key, tag);
+        overlay.getChildren().add(tag);
+        updateSinglePosition(sphere, tag);
     }
 
     private void showHover(Sphere sphere, String text) {
@@ -200,8 +302,11 @@ public class PcaPlotView3D extends PlotView {
     }
 
     private void updateAllTagPositions() {
-        for (Map.Entry<Label, Sphere> entry : tagMap.entrySet()) {
-            updateSinglePosition(entry.getValue(), entry.getKey());
+        for (Map.Entry<String, Label> entry : labelsByKey.entrySet()) {
+            Sphere sphere = spheresByKey.get(entry.getKey());
+            if (sphere != null) {
+                updateSinglePosition(sphere, entry.getValue());
+            }
         }
     }
 

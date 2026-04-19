@@ -111,11 +111,13 @@ public class PlotPane extends StackPane {
             return;
         }
 
-        currentPlot.setPoints(currentPoints);
-        currentPlot.setSelectedKey(selectedKey);
-        currentPlot.setHighlights(neighborKeys);
-        currentPlot.setGroupHighlights(groupKeys);
-        currentPlot.setLabels(buildLabels());
+        currentPlot.applyState(
+                currentPoints,
+                selectedKey,
+                neighborKeys,
+                groupKeys,
+                buildLabels()
+        );
     }
 
     private Set<String> buildLabels() {
